@@ -1,0 +1,123 @@
+# English — managers and the owner. Manager-brief style: dense, lead with what needs a decision,
+# no throat-clearing. If a day was uneventful, one line says so; padding it teaches people to skim.
+#
+# Also the spray applicator's working language for SPRAY REPORTS specifically (docs/01 §D11) -
+# he types those in English by choice, which is what keeps the legally binding path free of any
+# transcription or translation. Everything else he receives is Gurmukhi.
+
+meta:
+  lang: en
+  register: "manager-brief; dense, decision-first"
+  voice_ok: true
+
+# ── Morning brief ────────────────────────────────────────────────────────────
+morning_brief:
+  header: "🌅 Morning brief — {date}"
+  site: "{site}: {tmax}°/{tmin}°, wind {w} km/h {dir}, rain {p}%, RH {rh}%"
+  verdict_yes: "   Spray window: YES {start}–{end}"
+  verdict_no: "   Spray window: NO — {reason}"
+  station_note: "   (station: {station}, {km} km)"
+  rei_active: "🚫 {block} re-entry {day} {time} ({product})"
+  frost: "❄️ Frost risk tonight — min {t}° at {site}"
+  degraded: "⚠️ Based on {source} data ({age} old) — verdict withheld to fail-safe NO"
+
+# ── Spray report, applicator in English ─────────────────────────────────────
+spray_ask:
+  product: "Which product? (trade name off the label — or send a photo of it)"
+  block: "Which block?"
+  block_ambiguous: "Block {code} — {name} ({acres} ac)?"
+  rate: "Rate or total applied? (e.g. 8 kg/ha, or 25 kg total)"
+  times: "Start and end time?"
+  target_pest: "Target pest?"
+  label_rei: "The label states a re-entry interval. How many hours does it say?"
+  wind: "What was the wind like? (BC requires it on the record)"
+  temp: "Roughly what temperature?"
+  rate_confirm: "{rate} is well above the label rate of {label_rate}. Deliberate, or a typo?"
+  # Obligation 4: verification needs the numbers off the container, not an assurance.
+  verify_pcp: "To mark {product} verified I need the PCP registration number off the container."
+  verify_rei: "And the re-entry interval in hours, as printed on the label."
+
+spray_confirm: |
+  📋 About to file this:
+  🧪 {product} — {rate}
+  📍 Block {code} ({acres} ac) · {date}, {start}–{end}
+  🎯 Target: {pest}
+  🌡️ {temp}°, wind {wind} km/h {dir}  (from forecast — correct?)
+  ⏳ No entry until: {rei_end}
+
+  Reply YES to file, or tell me what to change.
+spray_ack: "✅ Filed. Block {code} closed until {rei_end}."
+
+# ── Alerts to managers ───────────────────────────────────────────────────────
+rei_alert: "🚫 REI: Block {code} sprayed with {product} at {time} by {applicator}. Re-entry {day} {end_time} ({rei}h)."
+rei_allclear: "✅ Block {code} re-entry interval elapsed — crew cleared to enter."
+frost_alert: "❄️ FROST ALERT — {site} overnight min {t}°C ({source}). Wind machines / sprinklers call is yours."
+
+# ── EOD report ───────────────────────────────────────────────────────────────
+# Section 6 (Hermes notes) is not optional. It is the price of the latitude Hermes has:
+# autonomy is made safe by being reconstructable. Empty is a valid value; padding is not.
+eod_report: |
+  📊 EOD — {date}
+  ✅ Work today:
+  {work_lines}
+  🧪 Sprays:
+  {spray_lines}
+  ⏳ REI active tomorrow: {rei_list}
+  🌤️ Tomorrow: {tomorrow_lines}
+  🏡 New listings ({n}): {listing_lines}
+  ⚠️ Flags: {flags}
+  🧭 Hermes notes: {agent_notes}
+  📎 {attachments}
+eod_nothing: "📊 EOD — {date}. Quiet day: {n_tasks} tasks, no sprays, nothing flagged."
+
+# ── Grower's daily report, 04:30 ─────────────────────────────────────────────
+# The grower's decision document. Leads with what to spray and when, then weather, work,
+# properties/grants. TERSE: one line per item; empty section = "no records"; can't compute =
+# "not set up" and nothing more. No narration. Weather comes from the cache this job's fetch
+# wrote at 04:30 - one fetch serves every later question.
+grower_report: |
+  🌄 Daily report — {date}
+
+  🧪 SPRAY: {spray_lines}
+
+  🦠 Mildew pressure: {mildew_lines}
+
+  💧 Water: {water_lines}
+
+  🌤️ Weather: {weather_lines}
+
+  ⏳ Restricted Entry Interval active: {rei_list}
+
+  🏞️ Work by property:
+
+  {work_lines}
+
+  👀 Watch today:
+
+  {watch_lines}
+
+  🏡 New properties ({n}): {listing_lines}
+
+  💰 Grants & water notices: {grant_lines}
+
+  🧭 On my own initiative: {agent_notes}
+grower_quiet: "🌄 Daily report — {date}. Quiet: no sprays due, no Restricted Entry Intervals running, {n_tasks} tasks logged. {watch_line}"
+
+# ── Degraded / failure states ────────────────────────────────────────────────
+weather_down: "⚠️ Weather source down (both providers). Morning brief degraded; spray verdict withheld (fail-safe NO). Investigating."
+gateway_down: "⚠️ Hermes WhatsApp gateway disconnected at {time}. No messages are being sent or received. Re-pair per docs/04 §8."
+emergency_relay: "🆘 EMERGENCY from {name} ({phone}): \"{original}\" → EN: \"{translation}\". Sent {time}. CALL THEM NOW."
+job_failed: "⚠️ {job} failed at {time}: {error}. Retried {n}×. {impact}"
+
+# ── Standing-duty escalations (docs/03 §1.1) ────────────────────────────────
+flag:
+  rei_near_miss: "⚠️ SAFETY: {task} logged in Block {code} while it was under REI ({product}, cleared {rei_end}). Worker: {worker}."
+  repeat_application: "⚠️ Block {code} had {product} twice in {days} days ({dates}). Duplicate log, or a real repeat?"
+  unverified_in_use: "⚠️ {product} is in active use but unverified — no REI can be stated for it until someone reads the label."
+  silent_worker: "{name} has not logged anything since {last}. Normally reports {cadence}."
+  above_label_rate: "⚠️ Block {code}: {product} at {rate} vs label {label_rate}. Confirmed by {who}."
+  data_drift: "{thing} appeared in a message but is not in the system. Seed data may be stale."
+
+help: |
+  Commands: CLIMA/WEATHER · CORREGIR/FIX · EXPORT (managers) · ALTO/STOP
+  Just describe work in plain language — no format needed.

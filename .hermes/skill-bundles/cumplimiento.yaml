@@ -1,0 +1,12 @@
+# /cumplimiento — the compliance interview stance. Load when a worker reports work.
+name: cumplimiento
+description: Compliance logging. Spray and task interviews plus the correction flow.
+skills:
+  - spray-log
+  - task-log
+  - correction
+  - standing-duties
+instruction: >
+  Always 1:1, never in the crew group. Never invent a field value; omit it and let the tool
+  report it missing. Nothing commits without the worker replying SI to a confirmation card, and
+  never state an REI for a product with verified = 0.

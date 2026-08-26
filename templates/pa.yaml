@@ -1,0 +1,103 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# ⚠️  UNREVIEWED. EVERY STRING NEEDS A PUNJABI SPEAKER TO READ IT BEFORE GO-LIVE.
+#
+# These were drafted without a native reviewer. They are a scaffold to review and correct, not
+# finished copy. Two of them carry real safety weight - `rei_alert` and `frost_alert` - and a
+# clumsy or ambiguous safety warning is worse than none, because people act on it.
+#
+# Review protocol (docs/08 Phase 3):
+#   1. Sit with the applicator. Read each line aloud. Fix the wording to what HE would say.
+#   2. Replace the vocabulary with the words used for the products in YOUR shed, not dictionary
+#      terms. This is the difference between a system he uses and one he abandons.
+#   3. Delete this banner once reviewed, and note who reviewed it and when.
+#
+# Reviewed by: ____________________   Date: ____________
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Scope note: this file is SMALLER than es.yaml on purpose. The spray applicator types his
+# spray reports in ENGLISH (docs/01 §D11), so the compliance interview lives in en.yaml. What
+# Punjabi carries is: briefs, safety broadcasts, task reports, and conversation.
+#
+# Profile: they SPEAK Punjabi, READ Gurmukhi, do NOT write it, do NOT read English.
+#   -> input is voice only. Never ask a pa contact to type.
+#   -> output is Gurmukhi text. Never send them English, not even as a fallback.
+
+meta:
+  lang: pa
+  script: gurmukhi
+  register: "simple, short sentences, spoken-Punjabi phrasing"
+  voice_ok: true    # via tools/punjabi-tts (Google Cloud TTS, pa-IN-Chirp3-HD-Puck).
+                    # Verified end to end 2026-08-22; engine swapped from IndicF5 2026-08-23.
+                    # Voice goes IN ADDITION to the Gurmukhi text, never instead of it.
+                    # Edge TTS has NO pa-IN voice: never call text_to_speech for a
+                    # pa contact. Shell out to tools/punjabi-tts/speak.py instead.
+  reviewed_by: null
+  reviewed_at: null
+
+# ── Morning brief ────────────────────────────────────────────────────────────
+morning_brief:
+  header: "ਸਤ ਸ੍ਰੀ ਅਕਾਲ — {fecha}"                      # Good morning — {date}
+  site: |
+    📍 *{sitio}*
+    🌡️ ਵੱਧ {tmax}° / ਘੱਟ {tmin}°
+    💨 ਹਵਾ {viento} km/h
+    🌧️ ਮੀਂਹ {prob}%
+  verdict_yes: "🚜 ਅੱਜ ਸਪਰੇਅ ਹੋ ਸਕਦੀ ਹੈ: *ਹਾਂ*\n✅ ਵਧੀਆ ਸਮਾਂ: {inicio}–{fin}"
+  verdict_no: "🚜 ਅੱਜ ਸਪਰੇਅ ਹੋ ਸਕਦੀ ਹੈ: *ਨਹੀਂ*\n❌ {motivo}"
+  station_note: "ℹ️ {estacion} ਤੋਂ ਜਾਣਕਾਰੀ, {km} km ਦੂਰ।"
+  rei_active: "🚫 *ਅੰਦਰ ਨਾ ਜਾਓ*: ਬਲਾਕ {code} — {dia} {hora} ਤੱਕ ({producto})"
+  frost: "❄️ *ਧਿਆਨ: ਅੱਜ ਰਾਤ ਕੋਰਾ ਪੈ ਸਕਦਾ ਹੈ (ਘੱਟ {tmin}°)*"
+  footer: "*ਮਦਦ* ਲਿਖੋ ਜੇ ਕੁਝ ਚਾਹੀਦਾ ਹੈ"
+
+# ── Safety broadcasts. Highest review priority in this file. ────────────────
+# Block code and time are digits either way, so they survive a wording problem. That is
+# deliberate: if the sentence is imperfect, the block and the hour still land.
+rei_alert: "🚫 *ਅੰਦਰ ਨਾ ਜਾਓ — ਬਲਾਕ {code}*\nਅੱਜ {hora} ਵਜੇ {producto} ਪਾਈ ਗਈ।\nਅੰਦਰ ਜਾਣ ਦੀ ਇਜਾਜ਼ਤ: *{dia} {hora_fin}*\nਆਪਣੇ ਸਾਥੀਆਂ ਨੂੰ ਦੱਸੋ।"
+rei_allclear: "✅ ਬਲਾਕ {code} ਵਿੱਚ ਹੁਣ ਜਾ ਸਕਦੇ ਹੋ।"
+frost_alert: "❄️ *ਕੋਰੇ ਦੀ ਚੇਤਾਵਨੀ* — ਅੱਜ ਰਾਤ {sitio} ਵਿੱਚ ਘੱਟ ਤੋਂ ਘੱਟ {t}°। {instruccion}"
+
+# ── Task report (voice in, Gurmukhi out) ────────────────────────────────────
+# One field per message, with numbers read back. Free transcription is rough on Punjabi
+# (~55% WER), so short questions with small answer spaces are what make this workable.
+task_ask:
+  what: "ਅੱਜ ਕੀ ਕੰਮ ਕੀਤਾ?"                              # What work did you do today?
+  block: "ਕਿਹੜੇ ਬਲਾਕ ਵਿੱਚ?"                              # Which block?
+  hours: "ਸਾਰਿਆਂ ਦੇ ਕਿੰਨੇ ਘੰਟੇ ਲੱਗੇ?"                    # How many hours between everyone?
+  workers: "ਕੌਣ ਕੌਣ ਸੀ?"                                 # Who was there?
+  quantity: "ਕਿੰਨੀਆਂ ਕਤਾਰਾਂ ਪੂਰੀਆਂ ਹੋਈਆਂ?"                # How many rows finished?
+  # Read numbers back explicitly - this is where transcription fails.
+  confirm_number: "ਮੈਂ *{valor}* ਸੁਣਿਆ। ਸਹੀ ਹੈ?"          # I heard {value}. Correct?
+  didnt_catch: "ਮਾਫ਼ ਕਰਨਾ, ਸਾਫ਼ ਨਹੀਂ ਸੁਣਿਆ। ਦੁਬਾਰਾ ਦੱਸੋ?"  # Sorry, didn't catch that. Again?
+
+task_confirm: |
+  📋 ਇਹ ਲਿਖ ਰਿਹਾ ਹਾਂ:
+  {tarea} — ਬਲਾਕ {code}
+  ⏱️ {horas} ਘੰਟੇ · {trabajadores}
+
+  ਸਹੀ ਹੈ? *ਹਾਂ* ਲਿਖੋ ਜਾਂ ਦੱਸੋ ਕੀ ਬਦਲਣਾ ਹੈ।
+task_ack: "✅ ਲਿਖ ਲਿਆ। ਧੰਨਵਾਦ {nombre} 💪"
+
+# ── Corrections ──────────────────────────────────────────────────────────────
+correction:
+  which: "ਕਿਹੜਾ ਠੀਕ ਕਰਨਾ ਹੈ?\n{lista}"
+  ack: "✅ ਠੀਕ ਕਰ ਦਿੱਤਾ। ਦੱਸਣ ਲਈ ਧੰਨਵਾਦ, {nombre}।"
+
+# ── Degraded / failure states ────────────────────────────────────────────────
+weather_down: "⚠️ ਅੱਜ ਮੌਸਮ ਦੀ ਜਾਣਕਾਰੀ ਨਹੀਂ ਮਿਲੀ। ਮੈਨੇਜਰ ਨੂੰ ਪੁੱਛੇ ਬਿਨਾਂ *ਸਪਰੇਅ ਨਾ ਕਰੋ*।"
+weather_stale: "⚠️ ਧਿਆਨ: ਇਹ ਜਾਣਕਾਰੀ {edad} ਪੁਰਾਣੀ ਹੈ।"
+emergency_ack: "🆘 ਸੁਨੇਹਾ ਮਿਲ ਗਿਆ। ਮੈਨੇਜਰ ਨੂੰ ਦੱਸ ਦਿੱਤਾ — ਉਹ ਫ਼ੋਨ ਕਰਨਗੇ। ਜੇ ਗੰਭੀਰ ਹੈ ਤਾਂ *911* ਮਿਲਾਓ।"
+draft_expired: "{nombre} ਜੀ — ਕੱਲ੍ਹ ਦੀ ਰਿਪੋਰਟ ਅਧੂਰੀ ਰਹਿ ਗਈ ਸੀ। ਪੂਰੀ ਕਰਨੀ ਹੈ?"
+
+# ── Onboarding & commands ────────────────────────────────────────────────────
+onboarding:
+  welcome: |
+    ਸਤ ਸ੍ਰੀ ਅਕਾਲ {nombre}! ਮੈਂ ਹਰਮੇਸ ਹਾਂ, ਅੰਗੂਰਾਂ ਦੇ ਫਾਰਮ ਦਾ ਸਹਾਇਕ।
+    • ਹਰ ਸਵੇਰ ਮੌਸਮ ਅਤੇ ਸਪਰੇਅ ਬਾਰੇ ਦੱਸਾਂਗਾ।
+    • ਕੰਮ ਬਾਰੇ ਦੱਸਣ ਲਈ *ਵੌਇਸ ਨੋਟ* ਭੇਜੋ — ਲਿਖਣ ਦੀ ਲੋੜ ਨਹੀਂ।
+    • ਕਦੇ ਕਦੇ ਇੱਕ ਦੋ ਸਵਾਲ ਪੁੱਛਾਂਗਾ।
+    • ਕੁਝ ਗਲਤ ਲਿਖਿਆ ਜਾਵੇ ਤਾਂ ਦੱਸ ਦਿਓ, ਠੀਕ ਹੋ ਜਾਵੇਗਾ।
+help: |
+  *ਮੌਸਮ* — ਅੱਜ ਦਾ ਮੌਸਮ ਅਤੇ ਸਪਰੇਅ ਬਾਰੇ
+  *ਠੀਕ* — ਕੁਝ ਗਲਤ ਲਿਖਿਆ ਹੋਵੇ ਤਾਂ
+  ਕੰਮ ਦੱਸਣ ਲਈ ਸਿਰਫ਼ ਵੌਇਸ ਨੋਟ ਭੇਜੋ।
+stop_ack: "ਠੀਕ ਹੈ। ਸੁਰੱਖਿਆ ਦੇ ਸੁਨੇਹੇ (ਸਪਰੇਅ, ਕੋਰਾ) ਫਿਰ ਵੀ ਆਉਂਦੇ ਰਹਿਣਗੇ।"

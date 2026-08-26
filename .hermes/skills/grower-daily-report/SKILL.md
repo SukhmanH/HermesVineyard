@@ -74,10 +74,16 @@ The grower wants to know **what to spray and when**, not just today's verdict:
 
 The grower reads this in two minutes, once a day, before deciding anything.
 
-- **One line per item.** Dense, no narration, no explaining the reasoning behind every line.
-- **Nothing to report = "no records".** Not a paragraph about why. "Water: no records." "Work: no records." Move on.
+- **Render the template structure from `templates/en.yaml` (`grower_report`) exactly** — emoji
+  section headers, one line per item, a BLANK LINE between every item and section. The air and
+  the visual anchors are what make it skimmable on a phone; do not invent your own layout.
+- **Nothing to report = "no records".** Not a paragraph about why. "Water: no records." Move on.
 - **Can't compute it = "not set up"**, once, with nothing after it. The missing data is already
   flagged elsewhere (setup items); the daily report is not the place to re-explain it daily.
+- **Report channel facts precisely.** The WhatsApp channel is either working or it is not
+  (a delivered report proves it works). What may be missing is *enrollment*: worker consent,
+  the crew group JID, listings IMAP credentials. Say which piece is missing — never claim the
+  whole channel is down when messages are demonstrably flowing.
 - Explanations only when something is genuinely unusual or needs a decision. If a line needs a
   second sentence to be understood, that sentence must earn its place.
 - If the whole day is quiet: one line. "Quiet. No records anywhere." is a complete report.
@@ -87,11 +93,17 @@ The grower reads this in two minutes, once a day, before deciding anything.
 - **Spray verdicts + recommendations per site** — verdict YES/NO with best hours, then the
   recommendation block above: cover status in days, candidate product(s) with reasoning, next
   window outlook. Lead with this when spraying season is live.
+  **Never use the acronyms REI or PHI in a report** — write "Restricted Entry Interval" and
+  "Pre-Harvest Interval" in full, every time.
 - **Mildew pressure + water lines** — the computed extras above; omit a section only when it
   genuinely has nothing to say (out of season), never pad it back in.
-- **Active REIs** by block, with time each clears, and expiries worth planning around.
-- **Weather** — per-site conditions summary underpinning the verdicts; station named when it is
-  not the site's own.
+- **Weather** — forecast summary per site (station named when it is not the site's own) PLUS
+  the current-conditions line from each site's local Wunderground station: temp, humidity,
+  dew point, wind, in Celsius (convert if a source returns Fahrenheit; endpoints in
+  `/weather-fetch` references). Dew point near the temperature = mildew-friendly air; say so
+  when the gap is small.
+- **Active Restricted Entry Intervals** by property, with the time each clears, and expiries
+  worth planning around. "No records" when none.
 - **Work by property** — yesterday's tasks grouped by property and named the way the grower
   names them: **Upper Bench, Naramata, Rust, Tucelnuit, Hwy 97, Cassini** — never internal
   block codes. Hours where logged, plus anything still unconfirmed in drafts. Use

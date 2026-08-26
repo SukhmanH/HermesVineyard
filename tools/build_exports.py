@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import zipfile
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(REPO, "data")
@@ -46,7 +46,7 @@ def conn_ro() -> sqlite3.Connection:
 # Workbook builders
 # --------------------------------------------------------------------------- #
 def _style_header(ws) -> None:
-    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.styles import Alignment, Font, PatternFill
     fill = PatternFill("solid", fgColor="1F4E37")
     font = Font(bold=True, color="FFFFFF")
     for cell in ws[1]:

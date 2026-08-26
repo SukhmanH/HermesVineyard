@@ -1,0 +1,106 @@
+# Spanish — the SAWP crew. Mexican register: plain, short sentences, ustedes not vosotros.
+# Emoji are visual anchors: the crew reads fast, on a phone, in sunlight.
+#
+# THESE ARE A FLOOR, NOT A CEILING (docs/01 §D8). Hermes may add to any message here.
+# What it may NOT do is restate a COMPUTED fact in its own words - the spray verdict, an REI
+# time, a rate, an acreage, and the confirmation card render from tool-returned values through
+# these strings, every time. Facts are rendered; judgement is Hermes's.
+#
+# Follow-up questions and acknowledgements are known-good starting points, not a script.
+
+meta:
+  lang: es
+  register: "Mexican Spanish, informal-respectful, ustedes"
+  voice_ok: true          # Edge TTS has a Spanish voice
+
+# ── Morning brief ────────────────────────────────────────────────────────────
+morning_brief:
+  header: "🌅 Buenos días equipo — {fecha}"
+  site: |
+    📍 *{sitio}*
+    🌡️ Máx {tmax}° / Mín {tmin}°   💧 Humedad {rh}%
+    💨 Viento {viento} km/h {dir}
+    🌧️ Lluvia {prob}%
+  verdict_yes: "🚜 ¿Se puede fumigar hoy en {sitio}? *SÍ*\n✅ Mejor horario: {inicio}–{fin}"
+  verdict_no: "🚜 ¿Se puede fumigar hoy en {sitio}? *NO*\n❌ {motivo}"
+  # Only Penticton has its own weather station. Say so when it matters (docs/01 §D11 note).
+  station_note: "ℹ️ Datos de {estacion}, a {km} km."
+  rei_active: "🚫 *NO ENTRAR*: Bloque {code} hasta {dia} {hora} ({producto})"
+  frost: "❄️ *OJO: riesgo de helada esta noche (mín {tmin}°)*"
+  footer: "Escribe *CLIMA* para actualizar · *AYUDA* si necesitas algo"
+  # Spoken variant: no emoji, no layout - those read badly aloud.
+  voice: "Buenos días. {resumen_hablado}"
+
+# ── Spray report: follow-up questions (1:1 only) ─────────────────────────────
+# Bundle these. A normal report should need two messages, not six.
+spray_ask:
+  product: "¿Qué producto aplicaste? (el nombre en la etiqueta — o mándame *foto de la etiqueta* 📸)"
+  block: "¿En qué bloque? (ej: *bloque 3*)"
+  block_ambiguous: "¿Bloque *{code} — {name}* ({acres} acres)? Responde *sí* o dime cuál."
+  rate: "¿Cuánto aplicaste? (ej: *8 kg/ha* o *total 25 kg*)"
+  times: "¿De qué hora a qué hora? (ej: *6:00 a 9:30*)"
+  target_pest: "¿Contra qué? (ej: *oídio / cenicilla*)"
+  label_rei: "La etiqueta dice el *REI* (horas sin entrar). ¿Cuántas horas dice?"
+  # BC requires prevailing weather on the record. Asked only when the forecast cache is empty.
+  wind: "¿Cómo estaba el viento? (ej: *poco viento* o *15 km/h*)"
+  temp: "¿Como cuántos grados hacía?"
+  # Over-application guard: the rate is well above the label rate, so ask rather than record it
+  # quietly. This is a label violation and a residue problem if it was a mistake.
+  rate_confirm: "Oye, {tasa} es bastante más de lo que dice la etiqueta ({tasa_etiqueta}). ¿Está bien así o me equivoqué al anotar?"
+
+# ── Confirmation card: NOTHING commits without this ─────────────────────────
+# Rendered verbatim when draft_spray_log returns no missing fields. The worker's reply is their
+# signature on a legal record and is stored on the row (docs/01 §3.0).
+spray_confirm: |
+  📋 Voy a guardar esto:
+  🧪 {producto} — {tasa}
+  📍 Bloque {code} ({acres} acres) · {fecha}, {inicio}–{fin}
+  🎯 Contra: {plaga}
+  🌡️ {temp}°, viento {viento} km/h {dir}  (según pronóstico — ¿correcto?)
+  ⏳ NO ENTRAR hasta: {rei_fin}
+
+  ¿Está bien? Responde *SÍ* para guardar, o dime qué corregir.
+spray_ack: "✅ Guardado. Gracias {nombre} 👍  ⏳ Recuerda: nadie entra al Bloque {code} hasta {rei_fin}."
+
+# ── Task report ──────────────────────────────────────────────────────────────
+task_ask:
+  block: "¿En qué bloque?"
+  hours: "¿Cuántas horas le dedicaron entre todos?"
+  workers: "¿Quiénes trabajaron en esto?"
+  quantity: "¿Cuántas hileras terminaron?"
+task_confirm: "📋 {tarea} — Bloque {code} · {horas} h · {trabajadores} · {cantidad}. ¿Está bien? Responde *SÍ*."
+task_ack: "✅ Anotado. Gracias {nombre} 💪"
+
+# ── Corrections ──────────────────────────────────────────────────────────────
+correction:
+  which: "¿Cuál quieres corregir?\n{lista}"
+  ack: "✅ Corregido. Gracias por avisarme, {nombre} — así el registro queda bien."
+
+# ── Safety broadcasts (crew group) ──────────────────────────────────────────
+rei_alert: "🚫 *NO ENTRAR — Bloque {code}*  Se aplicó {producto} hoy a las {hora}. Entrada permitida: *{dia} {hora_fin}*. Avisa a tus compañeros."
+rei_allclear: "✅ Ya se puede entrar al Bloque {code} ({producto}, REI cumplido)."
+frost_alert: "❄️ *ALERTA DE HELADA* — esta noche mín {t}° en {sitio}. {instruccion}"
+
+# ── Degraded / failure states: never go silent ──────────────────────────────
+weather_down: "⚠️ Hoy no tengo datos del clima (falla técnica). *No fumiguen* sin consultar a su manager. Les aviso cuando vuelva."
+weather_stale: "⚠️ Ojo: estos datos son de {edad}. Confírmenlo antes de fumigar."
+draft_expired: "Hola {nombre} — quedó a medias el reporte del bloque {code} de ayer. Si quieres lo terminamos, mándame lo que falta."
+emergency_ack: "🆘 Recibido. Ya avisé a los managers — te van a llamar. Si es grave llama al *911*."
+
+# ── Onboarding & commands ────────────────────────────────────────────────────
+onboarding:
+  welcome: |
+    ¡Hola {nombre}! Soy Hermes, el asistente del viñedo.
+    • Cada mañana les mando el clima y si se puede fumigar.
+    • Cuéntame lo que hiciste — por texto o *nota de voz*, como te sea más fácil.
+    • A veces les hago un par de preguntas: el gobierno pide ciertos datos de las fumigaciones.
+    • Si algo sale mal, escribe *CORREGIR*. Se arregla fácil, no hay problema.
+    Escribe *AYUDA* cuando quieras.
+  voice_pref: "¿Prefieres que también te mande las cosas por nota de voz?"
+help: |
+  Comandos:
+  *CLIMA* — el clima y si se puede fumigar
+  *CORREGIR* — arreglar algo que anotamos mal
+  *ALTO* — dejo de mandarte mensajes que no sean de seguridad
+  Para reportar: solo cuéntame qué hiciste, por texto o nota de voz.
+stop_ack: "Listo, ya no te mando mensajes normales. Los avisos de seguridad (fumigaciones, heladas) sí te van a seguir llegando."

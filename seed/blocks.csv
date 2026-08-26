@@ -1,0 +1,7 @@
+code,name,site,acres,variety,row_count,lat,lon,notes
+UB,Upper Bench,penticton,0,,,,,"REAL DATA TBD - 70 Upper Bench Rd, Penticton. Fill acres, variety, rows, irrigation per block"
+NAR,Naramata,naramata,0,,,,,"REAL DATA TBD - 2017 Naramata Rd. Fill acres, variety, rows, irrigation per block"
+RUST,Rust,oliver,0,,,,,"4444 Goldenmile Dr (Rust Winery Vineyard). Fill acres, variety, rows, irrigation per block"
+TUC,Tucelnuit,oliver,0,,,,,"REAL DATA TBD - 7199 Tucelnuit Dr. Fill acres, variety, rows, irrigation per block"
+H97,Hwy 97,oliver,0,,,,,"4152 BC-97, Oliver. Fill acres, variety, rows, irrigation per block"
+CAS,Cassini,oliver,0,,,49.134041,-119.582336,"4798 Okanagan Hwy, V0X 1C0. Fill acres, variety, rows, irrigation per block"

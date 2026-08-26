@@ -25,8 +25,10 @@ so do not run a pesticide interview over it. Two questions is usually plenty.
 2. `draft_task_log(wa_phone, extraction)` returns a confirm token and `missing_fields`.
 3. Bundle the questions. Usually only hours and block are missing.
 4. `present_confirmation(token)`, send the card from the template, **end your turn and wait**,
-   then `commit_task_log(token, worker_reply)` with their own words. Never invent the reply —
-   it is stored on the record as their signature.
+   then `commit_task_log(token, worker_reply, wa_phone)` with their own words and the resolved
+   sender's number. Never invent the reply - it is stored on the record as their signature.
+   The commit is refused if the confirmation came from a different number than the draft was
+   opened with - that is the forwarded-card guard, not a bug.
 
 ## Hours are payroll
 

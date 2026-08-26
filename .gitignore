@@ -1,0 +1,30 @@
+# Secrets — never commit
+.env
+config/.env
+*.key
+
+# Data: the compliance record and its backups live on the machine, not in git
+data/
+backups/
+exports/
+*.db
+*.db-wal
+*.db-shm
+
+# Hermes Agent runtime state (session keys, caches). The WhatsApp session directory is
+# equivalent to a logged-in WhatsApp account — back it up encrypted, never to git.
+platforms/
+*.session
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+data/eval-*.db*

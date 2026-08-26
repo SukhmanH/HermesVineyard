@@ -1,0 +1,132 @@
+# Hermes Agent — vineyard deployment
+# Copy to ~/.hermes/config.yaml. Prefer `hermes config set` and `hermes model` over hand-editing:
+# they route secrets to ~/.hermes/.env automatically. Verify against the INSTALLED version with
+# `hermes config check` — upstream moves fast.
+# Schema confirmed against v0.20.4.
+
+timezone: "America/Vancouver"      # GLOBAL. There is no per-job timezone upstream.
+                                   # A box left in UTC fires the 06:00 brief at 23:00 the night
+                                   # before and nothing warns you. Verify the system clock too.
+
+# ── Model ───────────────────────────────────────────────────────────────────────────────────
+model:
+  provider: "ninerouter"
+  model: "<PINNED-MODEL-ID>"       # PIN a specific reliable model. Never a free/auto combo:
+                                   # extraction from unpunctuated voice-note Spanish is the
+                                   # hardest thing here, and a silent model swap degrades
+                                   # compliance data quality invisibly.
+
+providers:
+  ninerouter:
+    type: "openai"                 # OpenAI-compatible
+    base_url: "${LLM_BASE_URL}"    # 9router over Tailscale
+    api_key: "${LLM_API_KEY}"
+
+auxiliary:
+  vision: {provider: "auto", model: ""}    # product labels and pest/disease photos
+
+# ── Voice transcription ─────────────────────────────────────────────────────────────────────
+# faster-whisper is local, free, and good on SPANISH (~5% WER). It is ROUGH on PUNJABI (~55%),
+# with errors clustering on numbers, product names and units.
+#
+# That is tolerable here ONLY because of §D11: the spray applicator types his SPRAY reports in
+# English, so the legally binding path never touches Punjabi ASR. Punjabi voice is used for task
+# logs and conversation, where an error costs a correction turn rather than a wrong record.
+#
+# PIN large-v3. The small model is ~87% WER on Punjabi — not usable.
+# Optional upgrade if free proves too rough: Sarvam/ElevenLabs via execute_code (~$3-10/mo).
+transcription:
+  provider: faster-whisper
+  model: large-v3
+
+# ── Text to speech ──────────────────────────────────────────────────────────────────────────
+# Spanish: Edge TTS, free, no key. Punjabi: Edge TTS has NO pa-IN voice, so Hermes shells out to
+# tools/punjabi-tts/speak.py — Google Cloud TTS, voice pa-IN-Chirp3-HD-Puck (replaced self-hosted
+# IndicF5 on 2026-08-23; see docs/01 §D11 amendment). Free under 1M chars/month; auth is
+# Application Default Credentials (gcloud auth application-default login), not a key in .env.
+# DO NOT use facebook/mms-tts-pan: CC-BY-NC 4.0, non-commercial. Same reason Open-Meteo's free
+# tier was rejected in §D3 — a non-commercial licence is not a loophole for a business.
+tts:
+  provider: edge
+  voices:
+    es: "es-MX-DaliaNeural"
+    en: "en-CA-ClaraNeural"
+    # pa: handled out-of-band by tools/punjabi-tts — see .hermes/skills/punjabi-intake/
+
+context_file_max_chars: 40000
+
+# ── Agent ───────────────────────────────────────────────────────────────────────────────────
+agent:
+  disabled_toolsets: ["image_gen", "spotify", "discord", "discord_admin", "homeassistant", "browser"]
+  # KEEP: terminal, code_execution, file, vision, tts, memory, session_search, cronjob,
+  #       delegation, clarify, todo, messaging, skills, mcp-vineyard
+  # terminal and code_execution are load-bearing, not optional: they are how Hermes fetches
+  # weather, reads the listings inbox, and builds workbooks without us writing those modules.
+
+# ── Skills ──────────────────────────────────────────────────────────────────────────────────
+skills:
+  write_approval: true             # GLOBAL, not per-skill. There is no per-skill gate upstream.
+                                   # Accept the friction on open-tier skills: silently losing the
+                                   # gate on spray-log would be a compliance failure.
+                                   # Review: /skills pending -> /skills diff <id> -> /skills approve <id>
+  guard_agent_created: true        # scan agent-written skills for dangerous patterns.
+                                   # Hermes has `terminal`, so a self-written skill has real reach.
+  external_dirs: []                # project-local .hermes/skills/ is auto-discovered in-repo.
+                                   # Run `hermes skills trust` once in this repo.
+                                   # Only use external_dirs if Hermes will run OUTSIDE the repo.
+
+# ── Memory ──────────────────────────────────────────────────────────────────────────────────
+memory:
+  memory_enabled: true
+  write_approval: false            # open tier: worker habits, manager preferences
+  # ~/.hermes/memories/MEMORY.md is capped at 2200 chars, USER.md at 1375. Compliance facts NEVER
+  # live here (docs/01 §D2) — this store is capped and lossy by design. SQLite is the record.
+
+compression:
+  enabled: true
+  threshold: 0.50
+  protect_last_n: 20
+
+# ── WhatsApp ────────────────────────────────────────────────────────────────────────────────
+whatsapp:
+  unauthorized_dm_behavior: ignore  # NOT the "pair" default. A stranger messaging the bot must
+                                    # not start a pairing flow — enrolment is a manager's job.
+  send_read_receipts: true
+  reply_prefix: ""                  # no bot header; stay conversational
+
+gateway:
+  platforms:
+    whatsapp:
+      extra:
+        text_batch_delay_seconds: 5.0   # three fragments from one worker get ONE reply
+  # group_policy: allowlist
+  # group_allow_from: ["<CREW-GROUP-JID>"]   # capture at pairing time
+  # require_mention: false
+  # NOTE: these three keys are verified to exist; their exact NESTING is not. Confirm at M2.
+  # Group gating is per-GROUP, not per-sender — so compliance interviews stay 1:1.
+
+# ── Compliance kernel ───────────────────────────────────────────────────────────────────────
+mcp_servers:
+  vineyard:
+    command: "python"
+    args: ["-m", "vineyard_mcp.server"]
+    cwd: "/opt/hermes-vineyard"
+    timeout: 30
+    tools: {prompts: false, resources: false}
+    # Tools reach the agent as mcp_vineyard_<tool_name>. /reload-mcp picks up new ones.
+
+# ── Cron ────────────────────────────────────────────────────────────────────────────────────
+cron:                              # Jobs live in ~/.hermes/cron/jobs.json, NOT here.
+  model: "<PINNED-MODEL-ID>"       # this block is defaults for unpinned jobs
+  preflight: true
+  model_drift_guard: true          # prevent silent provider switches mid-season
+  failure_nudge_threshold: 3       # independent path to "this has been broken a while"
+  # allow_agent_scheduling defaults to false — a cron-run session cannot create more cron jobs.
+  # Leave it false. Hermes leads operations; it does not need to rewrite its own clock.
+
+# ── Terminal backend ────────────────────────────────────────────────────────────────────────
+terminal:
+  backend: local                   # local is right for a dedicated appliance. If this ever
+  timeout: 180                     # becomes `docker`, the requirements-agent.txt libraries must
+                                   # go in the IMAGE, not on the host, or weather/listings/exports
+                                   # break in a way that is baffling to debug.

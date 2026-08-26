@@ -1,0 +1,17 @@
+timezone: America/Vancouver
+sites:
+  - {key: penticton, label: Penticton, lat: 49.499, lon: -119.594, eccc_citypage: "s0000xxx"}
+  - {key: naramata,  label: Naramata,  lat: 49.596, lon: -119.587, eccc_citypage: "s0000yyy"}
+spray_window:
+  wind_min_kmh: 3
+  wind_max_kmh: 15
+  gust_max_kmh: 25
+  temp_min_c: 8
+  temp_max_c: 28
+  rain_prob_max_pct: 30
+  rain_free_hours_after: 4
+  min_window_hours: 2
+  day_start_hour: 5
+  day_end_hour: 21
+  max_data_age_hours: 6
+draft_ttl_hours: 24

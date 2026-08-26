@@ -82,8 +82,12 @@ This is obligation 1, and it is the step most easily skipped by accident.
 1. `present_confirmation(confirm_token)` — tells the kernel you are about to show the card.
 2. **Send the card**, verbatim from the template. Then **stop.** End your turn. Wait for the
    worker to actually reply. Do not continue in the same breath.
-3. `commit_spray_log(confirm_token, worker_reply)` — where `worker_reply` is **their own
-   affirmative words, verbatim**: «sí», «yes that's right», «ਹਾਂ».
+3. `commit_spray_log(confirm_token, worker_reply, wa_phone)` — where `worker_reply` is **their
+   own affirmative words, verbatim**: «sí», «yes that's right», «ਹਾਂ» — and `wa_phone` is the
+   sender's number you resolved at step 0 (`resolve_contact`). The commit is REFUSED if the
+   confirmation came from a different number than the draft was opened with. That gate stops a
+   forwarded card from being confirmed by someone else; if it fires, the reply did not come
+   from your worker — do not retry with a different number, tell the manager.
 
 **Never invent `worker_reply`.** It is stored on the record permanently as the worker's
 signature. Writing words nobody said is falsifying a legal document, and because it is recorded

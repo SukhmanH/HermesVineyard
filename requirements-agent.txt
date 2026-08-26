@@ -1,0 +1,13 @@
+# What HERMES needs available to execute_code — NOT vineyard_mcp's dependencies.
+#
+# These are the libraries Hermes reaches for when it fetches ECCC, reads the listings inbox, or
+# builds a workbook (docs/01 §D9). They must be installed in the interpreter code execution
+# actually uses, which is not necessarily the MCP server's venv. Getting this wrong produces a
+# baffling failure weeks later when weather or exports quietly stop working.
+#
+# If terminal.backend is ever set to `docker`, these belong in the IMAGE, not on the host.
+httpx
+openpyxl
+imapclient
+beautifulsoup4
+lxml

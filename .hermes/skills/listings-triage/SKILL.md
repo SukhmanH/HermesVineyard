@@ -32,6 +32,14 @@ Two, both allowlisted in `LISTINGS_ALLOWED_SENDERS`:
 Anything from another sender is not a listing source. Newsletters, market reports, and open-house
 blasts are noise. Ignore them silently.
 
+**Sender matching is subdomain-aware.** REALTOR.ca does NOT send listing alerts from
+`*@realtor.ca` — they come from subdomains like `noreply@notifications.realtor.ca` and
+`mlsnotifications.realtor.ca`. So a `*@realtor.ca` entry must match `dom == "realtor.ca" OR
+dom.endswith(".realtor.ca")`, not an exact string compare. A literal exact-domain check silently
+drops 100% of REALTOR.ca listing alerts (this bit the first triage run: UNSEEN returned empty
+because the only listing mail, from `notifications.realtor.ca`, failed the match). Zealty sends
+from `noreply@zealty.ca` directly, which matches as-is.
+
 ## Extract
 
 Read UNSEEN mail, strip the HTML, and pull `{mls_number, title, price, acres, address, area,

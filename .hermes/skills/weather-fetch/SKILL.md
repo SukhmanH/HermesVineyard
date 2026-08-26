@@ -30,15 +30,31 @@ writing any fetch code.** The URL format changed in 2026 and the older documente
 actually read — "Osoyoos, 18 km south" is honest; presenting it as Oliver's weather is not, and
 that difference decides a drift call.
 
+## Local sensors — Wunderground PWS (current conditions, not forecast)
+
+Each site also has a hyper-local personal weather station (`wunderground_pws` in settings):
+Penticton `IPENTI39`, Naramata `IBCNARAM1` (a vineyard station on the bench), Oliver `IOLIVE36`.
+**Mechanics, endpoints and etiquette in `references/wunderground.md`** — but the shape is:
+PWS = observations (temp, humidity, dew point, wind) at or near the vines; ECCC = forecast.
+Spray verdicts come from forecast hours; the PWS gives the current-conditions line in reports
+("Rust station: 24 °C, RH 38%, dew point 8 °C") and the honest weather-at-application reading.
+Always Celsius — convert if a source ever returns Fahrenheit.
+
 ## The degrade ladder, in order, never silently skipped
 
-1. **ECCC citypage XML** per site. Free for commercial use, authoritative for Canada, carries
-   official frost advisories. About 24 h of hourly data, which covers the only questions asked:
-   can we spray today, and is it freezing tonight?
+1. **ECCC citypage XML** per site — the FORECAST source. Free for commercial use, authoritative
+   for Canada, carries official frost advisories. About 24 h of hourly data, which covers the
+   only questions asked: can we spray today, and is it freezing tonight?
 2. **Open-Meteo**, only if `OPEN_METEO_API_KEY` is set. The free tier is non-commercial and this
    is a commercial operation, so without the key this rung does not exist. Do not use it anyway.
 3. **Last cached forecast under 24 h old**, marked STALE / DATOS DE AYER.
 4. **Nothing usable.** Send the apology from the template plus an owner alert. Never stay silent.
+
+Current CONDITIONS are a separate, parallel ladder: **Wunderground PWS first** (hyper-local,
+carries humidity + dew point), **ECCC `currentConditions` second — the government site is the
+automatic backup** when a PWS is dead or stale (derive dew point from its temp + RH — formula in
+`references/wunderground.md`, label it "estimated"), worker-reported last (marked as such).
+A PWS outage never downgrades a spray verdict — verdicts ride on the forecast ladder only.
 
 Fetch with `execute_code` and `httpx`. Parse defensively: ECCC XML is clunky and occasionally
 malformed. If a site fails but others succeed, report per-site rather than failing the whole run.

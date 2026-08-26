@@ -1,0 +1,44 @@
+trade_name,pcp_number,type,rei_hours,phi_days,max_temp_c,rainfast_hours,default_rate,rate_units,frac_group,target_pests,reapply_days,notes
+Kumulus DF,18836,fungicide,24,21,30,,,kg/ha,M2,powdery mildew,10,Sulphur 80%. BCWGC BPG + BC min-ag factsheet. Burn risk above ~27C in slow-drying conditions - treat 27-30C as caution band. Legal wine-grape PHI 21 d; BC recommends 30 d for wine (sulphur hurts ferments) - confirm with winery. NOT on Concord/Sheridan/Foch. VERIFY against the physical label before relying on any value
+Cosavet DF Edge,31869,fungicide,24,21,30,,,kg/ha,M2,powdery mildew,10,Sulphur 80%. Same cautions as Kumulus DF. VERIFY against the physical label before relying on any value
+Microthiol Disperss,,fungicide,24,21,30,,,kg/ha,M2,powdery mildew,10,Sulphur 80%. Same cautions as Kumulus DF. PCP not confirmed from sources - read off container. VERIFY against the physical label before relying on any value
+Lime Sulphur,16465,fungicide,48,,,,,,M,powdery mildew; overwintering inoculum,,Dormant-season clean-up BEFORE budbreak only. VERIFY against the physical label before relying on any value
+Pristine WG,27985,fungicide,12,14,,,,,11+7,powdery mildew; botrytis suppression,14,pyraclostrobin+boscalid. Wine grapes only. Max 2/season per group 11 - rotate. Label REI 'until dry - 21 d' by activity; 12h is the floor - read label. VERIFY against the physical label before relying on any value
+Cantus WDG,30141,fungicide,12,14,,,,,7,powdery mildew; botrytis suppression,10,"boscalid. 10-14 d interval, shorter under pressure. Rotate - group 7. VERIFY against the physical label before relying on any value"
+Sovran WG,26257,fungicide,48,14,,,,,11,powdery mildew,14,kresoxim-methyl. Max 2/season group 11 - rotate. VERIFY against the physical label before relying on any value
+Flint Extra,34962,fungicide,12,14,,,,,11,powdery mildew,14,trifloxystrobin. Label REI 12h-18d by activity - read label. Max 2 sequential group 11. VERIFY against the physical label before relying on any value
+Nova,22399,fungicide,12,,,,,,3,powdery mildew,14,myclobutanil. DMI - resistance documented elsewhere; limit consecutive use. REI 12h-7d by activity. VERIFY against the physical label before relying on any value
+Vivando SC,29765,fungicide,12,14,,,,,U8,powdery mildew,14,"metrafenone. PM ONLY - no botrytis activity. Max 2 sequential, rotate groups. VERIFY against the physical label before relying on any value"
+Quintec,,fungicide,12,14,,,,,13,powdery mildew,14,quinoxyfen. Protectant - apply BEFORE mildew visible. PCP not confirmed - read off container. VERIFY against the physical label before relying on any value
+Gatten,34297,fungicide,12,,,,,,13,powdery mildew,10,flutianil. Newer mode of action - useful in rotation. VERIFY against the physical label before relying on any value
+Property 300SC,32534,fungicide,12,,,,,,50,powdery mildew,10,pyriofenone. VERIFY against the physical label before relying on any value
+Cevya,33405,fungicide,12,,,,,,3,powdery mildew,14,mefentrifluconazole. DMI - rotate groups. VERIFY against the physical label before relying on any value
+Luna Tranquility,30510,fungicide,12,,,,,,7+9,powdery mildew; botrytis,12,fluopyram+pyrimethanil. Label REI 12-24h. VERIFY against the physical label before relying on any value
+Scala SC,28011,fungicide,24,,,,,,9,botrytis,10,pyrimethanil. Botrytis timing: bloom + pre-bunch-closure + pre-harvest. VERIFY against the physical label before relying on any value
+Switch 62.5 WG,28189,fungicide,12,,,,,,9+12,botrytis,10,cyprodinil+fludioxonil. Label REI 12h-2d by activity. Max 2/season - rotate. VERIFY against the physical label before relying on any value
+Elevate 50WDG,25900,fungicide,4,,,,,,17,botrytis,10,fenhexamid. VERIFY against the physical label before relying on any value
+Miravis Prime,33207,fungicide,12,,,,,,7+12,botrytis; powdery mildew,10,pydiflumetofen+fludioxonil. VERIFY against the physical label before relying on any value
+Inspire Super,30827,fungicide,168,,,,,,3+9,botrytis; powdery mildew,10,difenoconazole+cyprodinil. Label REI up to 7 days for some activities - READ LABEL carefully. VERIFY against the physical label before relying on any value
+Parasol,25901,fungicide,48,,,,,,M1,downy mildew; phomopsis,7,copper hydroxide. VERIFY against the physical label before relying on any value
+Cueva Commercial,31825,fungicide,4,1,,,,,M1,downy mildew; powdery mildew suppression,7,"copper octanoate - liquid low-rate copper, organic-usable. VERIFY against the physical label before relying on any value"
+MilStop,28095,fungicide,4,,,,,,NC,powdery mildew,7,"potassium bicarbonate - contact kill of young infections, organic-usable. VERIFY against the physical label before relying on any value"
+Suffoil-X,33099,fungicide,12,,,,,,NC,powdery mildew suppression,10,mineral oil. NEVER within 14 days of sulphur or captan - phytotoxic. Limit ~3 apps/season early summer. VERIFY against the physical label before relying on any value
+Serenade Opti,31666,fungicide,4,,,,,,44,powdery mildew suppression; botrytis suppression,7,"Bacillus subtilis biofungicide - suppression only, preventative. Organic-usable. VERIFY against the physical label before relying on any value"
+Double Nickel 55 WDG,31888,fungicide,4,,,,,,44,powdery mildew suppression,7,Bacillus amyloliquefaciens biofungicide - suppression only. Organic-usable. VERIFY against the physical label before relying on any value
+ProBlad Biofungicide,34050,fungicide,4,,,,,,NC,powdery mildew suppression; botrytis suppression,7,BLAD polypeptide. VERIFY against the physical label before relying on any value
+Assail 70 WP,27128,insecticide,12,,,,,,4A,leafhoppers,,acetamiprid. REI 12h-5d by activity. Western grape leafhopper resists malathion - Assail is the go-to. VERIFY against the physical label before relying on any value
+Altacor,28981,insecticide,14,,,,,,28,climbing cutworms; leafrollers,,"chlorantraniliprole. Cutworm timing = budbreak, when buds being eaten. VERIFY against the physical label before relying on any value"
+Intrepid,27786,insecticide,12,,,,,,18,leafrollers; cutworms,,methoxyfenozide growth regulator - must be eaten; time to larval emergence. VERIFY against the physical label before relying on any value
+Success,26835,insecticide,4,,,,,,5,cutworms; leafrollers; thrips,,spinosad. REI 'when dry'. Soft on beneficials - good IPM fit. VERIFY against the physical label before relying on any value
+Entrust SC,30382,insecticide,4,,,,,,5,cutworms; leafrollers; thrips,,spinosad ORGANIC formulation. REI 'until dry - 7d' by activity - read label. VERIFY against the physical label before relying on any value
+Delegate,28778,insecticide,12,,,,,,5,cutworms; leafrollers,,spinetoram. VERIFY against the physical label before relying on any value
+Admire 240,24094,insecticide,12,,,,,,4A,leafhoppers; mealybug,,imidacloprid soil/drip systemic. Mealybug + soft scale transmit grapevine viruses - control matters beyond feeding damage. VERIFY against the physical label before relying on any value
+Movento 240 SC,28953,insecticide,12,,,,,,23,mealybug; soft scale,,spirotetramat systemic - targets crawlers; time to crawler emergence (tape-trap on cordon). VERIFY against the physical label before relying on any value
+Closer SC,30826,insecticide,12,,,,,,4A,leafhoppers; mealybug,,sulfoxaflor. VERIFY against the physical label before relying on any value
+Clutch 50WDG,29382,insecticide,12,,,,,,4A,leafhoppers; cutworms,,clothianidin. VERIFY against the physical label before relying on any value
+Sivanto Prime,31452,insecticide,12,,,,,,4D,leafhoppers; mealybug,,flupyradifurone. Label REI 12-24h. Softer on beneficials than pyrethroids. VERIFY against the physical label before relying on any value
+Malathion 85E,8372,insecticide,12,,,,,,1B,Virginia creeper leafhopper,,REI 12h-4d by activity. Does NOT control western grape leafhopper (resistant). Softer on beneficials than other OPs. VERIFY against the physical label before relying on any value
+Dipel 2X DF,26508,insecticide,4,,,,,,11,cutworm larvae; leafroller larvae,,"Btk - ORGANIC, very selective, must be eaten; time to young larvae. VERIFY against the physical label before relying on any value"
+Agri-Mek SC,31607,insecticide,12,,,,,,6,grape leaf rust mite; spider mites; erineum mite,,abamectin. REI 12h-21d by activity - READ LABEL. Apply early season to young leaves for coverage. VERIFY against the physical label before relying on any value
+Magister SC,34544,insecticide,12,,,,,,21A,spider mites,,fenazaquin. VERIFY against the physical label before relying on any value
+Surround WP,27469,insecticide,24,,,,,,NC,leafhopper deterrence; thrips; sunburn protection,,"kaolin clay barrier, organic-usable. White residue on fruit - check winery tolerance before late use. VERIFY against the physical label before relying on any value"

@@ -1,0 +1,87 @@
+# Owner-tunable settings. Adjust with the owner before go-live; these are defaults, not truths.
+timezone: America/Vancouver
+
+# ECCC citypage station codes, resolved 2026-08-21 from the MSC site list.
+#
+# ⚠ OWNER DECISION NEEDED: only Penticton has a station of its own. Naramata and Oliver do not
+#   exist in the citypage list at all, so both use the NEAREST station by straight-line distance.
+#   Wind on a bench is not wind at the reporting station, and wind is what the spray-drift call
+#   turns on - so confirm these against what you actually observe, and override if they read wrong.
+#
+#   naramata -> Summerland (6 km, but ACROSS Okanagan Lake). Alternative: Penticton, 13 km, same
+#              shoreline and same air mass. Distance favours Summerland; local knowledge may not.
+#   oliver   -> Osoyoos (18 km south). Alternative: Penticton, 33 km north. Osoyoos is the
+#              obvious pick but it is a notably hotter pocket - watch the sulfur temp ceiling.
+# Wunderground personal-weather-station (PWS) API key. This is The Weather Company's PUBLIC web
+# client key (embedded in wunderground.com's own JS bundles) - not a secret, but rotate it by
+# re-extracting from the site bundle if it ever 401s. See weather-fetch skill, references/wunderground.md
+weather_sources:
+  wunderground_api_key: 6532d6454b8aa370768e63d6ba5a832e
+
+sites:
+  - {key: penticton, label: Penticton, lat: 49.499, lon: -119.594, eccc_citypage: s0000772,
+     eccc_station: Penticton,  station_distance_km: 2, wunderground_pws: IPENTI39}
+  - {key: naramata,  label: Naramata,  lat: 49.596, lon: -119.587, eccc_citypage: s0000351,
+     eccc_station: Summerland, station_distance_km: 6, wunderground_pws: IBCNARAM1}
+  - {key: oliver,    label: Oliver,    lat: 49.183, lon: -119.552, eccc_citypage: s0000397,
+     eccc_station: Osoyoos,    station_distance_km: 18, wunderground_pws: IOLIVE36}
+
+spray_window:
+  wind_min_kmh: 3            # dead calm = inversion drift risk, not "extra safe"
+  wind_max_kmh: 15
+  gust_max_kmh: 25
+  temp_min_c: 8
+  temp_max_c: 28             # product max_temp_c overrides (sulfur ~30 phytotoxicity)
+  rain_prob_max_pct: 30
+  rain_free_hours_after: 4
+  min_window_hours: 2
+  day_start_hour: 5
+  day_end_hour: 21
+  max_data_age_hours: 6      # older than this is STALE -> fail-safe NO
+
+frost:
+  threshold_c: 2.0
+  watch_windows:
+    - {from: "03-01", to: "05-31"}
+    - {from: "09-15", to: "11-15"}
+
+draft_ttl_hours: 24
+
+# ── Listings (the owner's property hunt) ─────────────────────────────────────
+# listings_poll applies this filter before anything reaches the owner. Tune with the owner —
+# these encode what the owner is hunting for (South & Central Okanagan vineyard/acreage).
+listings:
+  areas: ["Penticton", "Naramata", "Oliver", "Osoyoos", "Okanagan Falls", "Kaleden", "Summerland", "Keremeos"]
+  min_acres: 2
+  max_price: null            # set when the owner gives a budget; null = no ceiling
+  keywords: ["vineyard", "grape", "winery", "acreage", "farm", "orchard", "irrigated", "bench"]
+
+safety:
+  emergency_keywords: [emergencia, accidente, ayuda urgente, "911", "ਮਦਦ"]
+
+autonomy:                    # docs/01 §D8 — Hermes leads; these are the few hard edges
+  max_unsolicited_dm_per_contact_per_day: 3   # safety messages exempt
+  quiet_hours: {from: "21:00", to: "05:30"}   # non-safety only
+  # The grower_daily_report (04:30) is deliberately scheduled inside quiet hours - the grower
+  # asked for it at that time, which IS the consent. Listed by job name so the exemption cannot
+  # quietly stretch to anything else Hermes decides to send overnight.
+  quiet_hours_exempt_jobs: [grower_daily_report]
+  may_message_managers_anytime: true
+  escalate_to_owner_after_failed_nudges: 3
+  log_every_decision: true
+
+# ── Irrigation ───────────────────────────────────────────────────────────────
+# These are FARMING decisions, not facts. Kc depends on your canopy and training; how hard you
+# run deficit after veraison is a quality choice your winemaker has an opinion about. Set them
+# with the owner, and expect to revisit after a season.
+irrigation:
+  kc_default: 0.6
+  kc_by_stage:
+    budbreak: 0.3
+    bloom: 0.5
+    fruitset: 0.7
+    veraison: 0.6
+    post_veraison: 0.45     # deliberately lower - deficit concentrates flavour
+    postharvest: 0.4
+  deficit_fraction: 0.7     # 1.0 = full replacement; wine grapes commonly farmed well under
+  deficit_alert_mm: 20      # below this, not worth a message

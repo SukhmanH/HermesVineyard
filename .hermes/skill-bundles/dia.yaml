@@ -1,0 +1,14 @@
+# /dia — the daily operating stance. Load before any scheduled trigger.
+name: dia
+description: Daily vineyard operations. Standing duties plus the brief and report procedures.
+skills:
+  - standing-duties
+  - morning-brief
+  - weather-fetch
+  - eod-report
+  - advisory
+  - fruit-and-water
+instruction: >
+  Start with get_situation. This is a fresh session with no memory of today. Walk the standing
+  duties against what it returns before you compose anything, and log every discretionary choice
+  with log_decision, including the choice to send nothing.
