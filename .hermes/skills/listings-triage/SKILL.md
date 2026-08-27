@@ -40,6 +40,21 @@ drops 100% of REALTOR.ca listing alerts (this bit the first triage run: UNSEEN r
 because the only listing mail, from `notifications.realtor.ca`, failed the match). Zealty sends
 from `noreply@zealty.ca` directly, which matches as-is.
 
+## Runtime notes (learned the hard way — don't re-derive)
+
+- **`execute_code` is blocked in cron mode** (no user present to approve arbitrary local
+  Python). Drive `imapclient` from the **terminal's `python`** instead — the venv on PATH has
+  `imapclient` 3.1.0 and `beautifulsoup4` 4.x.
+- **`imapclient` 3.1.0 `ENVELOPE` `from_` addresses are `bytes`.** `frm.mailbox` / `frm.host`
+  are `bytes`, so `f"{frm.mailbox}@{frm.host}"` yields the literal string
+  `b'noreply'@b'notifications.realtor.ca'`. That string then **fails the subdomain matcher**
+  (it ends in `ca'`, not `.realtor.ca`), which silently drops 100% of REALTOR.ca alerts —
+  the exact failure this skill warns about, just one layer down. **Decode before matching:**
+  `f"{(frm.mailbox or b'').decode()}@{(frm.host or b'').decode()}"`.
+- **Marking seen:** fetch with `BODY.PEEK[]` (key comes back as `b"BODY[]"` in the response
+  dict) to read without setting `\Seen`; plain `BODY[]` marks the message read. Once a message
+  is marked seen it won't appear in `UNSEEN` again, so `seen_keys` is the only durable record.
+
 ## Extract
 
 Read UNSEEN mail, strip the HTML, and pull `{mls_number, title, price, acres, address, area,
