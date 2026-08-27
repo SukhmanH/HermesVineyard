@@ -10,18 +10,49 @@ from __future__ import annotations
 import os
 import sqlite3
 import zipfile
-from datetime import datetime, timedelta, timezone
+from contextlib import closing
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(REPO, "data")
-EXPORT_DIR = os.path.join(DATA, "exports")
-ARCHIVE_DIR = os.path.join(EXPORT_DIR, "archive")
-BACKUP_DIR = os.path.join(DATA, "backups")
-DB_PATH = os.path.join(DATA, "hermes.db")
-WA_SESSION = os.path.expanduser("C:/Users/brylan/AppData/Local/hermes/whatsapp")
 
-# America/Vancouver is UTC-7 in August (PDT).
-TZ = timezone(timedelta(hours=-7))
+
+def _path(env: str, default: str) -> str:
+    """Honour the same env vars as vineyard_mcp.config; relative resolves against the repo."""
+    raw = os.environ.get(env) or default
+    return raw if os.path.isabs(raw) else os.path.join(REPO, raw)
+
+
+EXPORT_DIR = _path("EXPORT_DIR", os.path.join("data", "exports"))
+ARCHIVE_DIR = os.path.join(EXPORT_DIR, "archive")
+BACKUP_DIR = _path("BACKUP_DIR", os.path.join("data", "backups"))
+DB_PATH = _path("DB_PATH", os.path.join("data", "hermes.db"))
+
+# The WhatsApp session dir differs per host: ~/.hermes/platforms/whatsapp on the Ubuntu box,
+# LOCALAPPDATA on the Windows build machine. Resolve it rather than pinning one developer's
+# home directory - this backup is the thing that saves a re-pair.
+def _wa_session() -> str | None:
+    home = os.environ.get("HERMES_HOME") or os.path.join(os.path.expanduser("~"), ".hermes")
+    local = os.environ.get("LOCALAPPDATA") or os.path.join(
+        os.path.expanduser("~"), "AppData", "Local"
+    )
+    candidates = [
+        os.environ.get("WA_SESSION_DIR"),
+        os.path.join(home, "platforms", "whatsapp"),
+        os.path.join(local, "hermes", "whatsapp"),
+    ]
+    for c in candidates:
+        if c and os.path.isdir(c):
+            return c
+    return None
+
+
+WA_SESSION = _wa_session()
+
+# Local wall-clock, DST included. A fixed -7 offset silently misdates every run from November
+# to March, and the stamp is what the archive filenames and retention are keyed on.
+TZ = ZoneInfo(os.environ.get("TZ") or "America/Vancouver")
 NOW = datetime.now(TZ)
 STAMP = NOW.strftime("%Y%m%d_%H%M%S")
 DATE = NOW.strftime("%Y-%m-%d")
@@ -94,7 +125,7 @@ def build_spray(path: str) -> int:
     ws = wb.active
     ws.title = "spray_log"
     ws.append(cols)
-    with conn_ro() as c:
+    with closing(conn_ro()) as c:
         for row in c.execute(q):
             ws.append(list(row))
     _style_header(ws)
@@ -126,7 +157,7 @@ def build_task(path: str) -> int:
     ws = wb.active
     ws.title = "task_log"
     ws.append(cols)
-    with conn_ro() as c:
+    with closing(conn_ro()) as c:
         for row in c.execute(q):
             ws.append(list(row))
     _style_header(ws)
@@ -156,12 +187,23 @@ def backup_db() -> str:
 # WhatsApp session snapshot
 # --------------------------------------------------------------------------- #
 def backup_whatsapp() -> str:
+    if not WA_SESSION:
+        # Silently zipping nothing is the failure mode that looks healthy right up until the
+        # day you need the session back and find 7 empty archives.
+        raise FileNotFoundError(
+            "no WhatsApp session dir found (set WA_SESSION_DIR, or HERMES_HOME)"
+        )
     dest = os.path.join(BACKUP_DIR, f"whatsapp-session-{STAMP}.zip")
+    written = 0
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
         for root, _dirs, files in os.walk(WA_SESSION):
             for f in files:
                 fp = os.path.join(root, f)
                 z.write(fp, os.path.relpath(fp, WA_SESSION))
+                written += 1
+    if written == 0:
+        os.remove(dest)
+        raise FileNotFoundError(f"WhatsApp session dir is empty: {WA_SESSION}")
     return dest
 
 
