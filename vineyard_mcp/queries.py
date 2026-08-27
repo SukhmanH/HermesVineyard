@@ -16,6 +16,10 @@ from zoneinfo import ZoneInfo
 from .config import get_settings
 from .db import audit, row_to_dict, rows_to_dicts, transaction, utcnow
 
+# The canonical site vocabulary, mirroring the CHECK on blocks.site. The southernmost
+# properties register under `oliver`, whose forecast already comes from the Osoyoos station.
+SITE_KEYS = frozenset({"penticton", "naramata", "oliver"})
+
 
 def _today_local() -> str:
     return datetime.now(ZoneInfo(get_settings().timezone)).strftime("%Y-%m-%d")
@@ -48,7 +52,7 @@ def record_daily_obs(
     tmax_c: float | None = None,
     tmin_c: float | None = None,
     precip_mm: float | None = None,
-    source: str = "eccc",
+    source: str = "wunderground",
 ) -> dict[str, Any]:
     """Store one measured day for a site (upsert by site+date — instrument data, not law).
 
@@ -58,6 +62,13 @@ def record_daily_obs(
     """
     import re as _re
 
+    # daily_obs carries no CHECK on `site` (it arrived as an additive migration, and adding a
+    # constraint to a live table means rebuilding it). Validate here instead: a typo would
+    # otherwise create a phantom site whose observations never appear in any GDD total, and
+    # nothing would ever say so.
+    site = (site or "").strip().lower()
+    if site not in SITE_KEYS:
+        return {"error": "unknown_site", "site": site, "known_sites": sorted(SITE_KEYS)}
     if not _re.fullmatch(r"\d{4}-\d{2}-\d{2}", obs_date or ""):
         return {"error": "invalid_date", "obs_date": obs_date, "hint": "expected YYYY-MM-DD"}
     vals: dict[str, float | None] = {}

@@ -48,3 +48,21 @@ def test_season_gdd_with_no_data(db):
     out = gdd_season(db, "penticton", 2026)
     assert out["gdd"] is None and out["complete"] is False
 
+
+
+def test_unknown_site_is_refused(db):
+    """daily_obs has no CHECK on site, so a typo would create a phantom whose observations
+    never surface in any GDD total and never announce themselves."""
+    migrate(db)
+    out = record_daily_obs(db, "olivr", "2026-07-15", 30.0, 15.0)
+    assert out["error"] == "unknown_site"
+    assert db.execute("SELECT COUNT(*) FROM daily_obs").fetchone()[0] == 0
+
+
+def test_site_is_case_normalised(db):
+    """'Oliver' and 'oliver' are the same vineyard, not two half-populated histories."""
+    migrate(db)
+    assert record_daily_obs(db, "Oliver", "2026-07-15", 30.0, 15.0)["recorded"] is True
+    assert record_daily_obs(db, "oliver", "2026-07-15", 31.0, 16.0)["recorded"] is True
+    rows = db.execute("SELECT site, tmax_c FROM daily_obs").fetchall()
+    assert [tuple(r) for r in rows] == [("oliver", 31.0)]
