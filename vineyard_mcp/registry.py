@@ -35,7 +35,7 @@ def update_block(
     """Apply owner-provided facts to a block. Owner/manager only; every change audited."""
     contact = row_to_dict(
         conn.execute(
-            "SELECT * FROM contacts WHERE wa_phone = ? OR wa_lid = ? AND active = 1",
+            "SELECT * FROM contacts WHERE (wa_phone = ? OR wa_lid = ?) AND active = 1",
             (updated_by, updated_by),
         ).fetchone()
     )
@@ -62,7 +62,13 @@ def update_block(
         if value is None:
             continue
         if key in ("name", "variety", "soil_type", "notes"):
-            clean[key] = str(value).strip()[:200] or None
+            text = str(value).strip()[:200]
+            if not text and key == "name":
+                # blocks.name is NOT NULL - blanking it would raise IntegrityError out of a
+                # module whose whole contract is to refuse rather than raise.
+                return _err("invalid_value", field=key, value=value,
+                            hint="a block name cannot be blank")
+            clean[key] = text or None
         elif key == "acres":
             try:
                 v = float(value)

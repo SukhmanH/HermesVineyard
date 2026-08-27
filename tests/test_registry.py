@@ -62,3 +62,33 @@ def test_partial_update_leaves_other_fields_alone(db):
     update_block(db, "B1", {"acres": 5.5}, updated_by=OWNER)
     after = db.execute("SELECT variety, acres FROM blocks WHERE code = 'B1'").fetchone()
     assert after[0] == before and after[1] == 5.5
+
+
+def test_deactivated_contact_cannot_update_the_registry(db):
+    """active=1 must apply to BOTH identity columns.
+
+    `wa_phone = ? OR wa_lid = ? AND active = 1` parses as `wa_phone = ? OR (wa_lid = ? AND
+    active = 1)` — SQL binds AND tighter than OR — so a deactivated contact matched by phone
+    sailed straight through the role gate and rewrote the registry.
+    """
+    db.execute("UPDATE contacts SET active = 0 WHERE wa_phone = ?", (OWNER,))
+    db.commit()
+    out = update_block(db, "B1", {"acres": 99.0}, updated_by=OWNER)
+    assert out["error"] == "unknown_caller"
+    assert db.execute("SELECT acres FROM blocks WHERE code = 'B1'").fetchone()[0] == 3.2
+
+
+def test_blank_name_is_refused_not_raised(db):
+    """blocks.name is NOT NULL; a blank must come back as a structured error, never as an
+    IntegrityError escaping the kernel."""
+    out = update_block(db, "B1", {"name": "   "}, updated_by=OWNER)
+    assert out["error"] == "invalid_value"
+    assert out["field"] == "name"
+    assert db.execute("SELECT name FROM blocks WHERE code = 'B1'").fetchone()[0] == "Home South"
+
+
+def test_blank_nullable_text_field_clears_it(db):
+    """The nullable text fields may still be cleared — only `name` is load-bearing."""
+    out = update_block(db, "B1", {"notes": "  "}, updated_by=OWNER)
+    assert out["updated"] is True
+    assert db.execute("SELECT notes FROM blocks WHERE code = 'B1'").fetchone()[0] is None
