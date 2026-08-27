@@ -55,6 +55,19 @@ listings:
   min_acres: 2
   max_price: null            # set when the owner gives a budget; null = no ceiling
   keywords: ["vineyard", "grape", "winery", "acreage", "farm", "orchard", "irrigated", "bench"]
+  # Core vineyard belt - an in-area bargain here earns an immediate ping, not a digest line.
+  top_areas: ["Osoyoos", "Oliver", "Penticton", "Naramata"]
+  # Rough "priced to move" ceilings (CAD), per area. HEURISTIC - tune these with the owner.
+  # An area with no ceiling here simply never triggers the price-based interrupt.
+  price_ceilings:
+    Osoyoos: 800000
+    Oliver: 1100000
+    Penticton: 850000
+    Naramata: 1300000
+    Okanagan Falls: 900000
+    Kaleden: 900000
+    Summerland: 1000000
+    Keremeos: 800000
 
 safety:
   emergency_keywords: [emergencia, accidente, ayuda urgente, "911", "ਮਦਦ"]

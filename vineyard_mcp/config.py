@@ -108,6 +108,12 @@ class Listings(BaseModel):
     keywords: list[str] = Field(
         default_factory=lambda: ["vineyard", "grape", "winery", "acreage", "farm"]
     )
+    # The core vineyard belt. Cheap-in-area HERE is worth interrupting the owner for; the same
+    # price in an outlying town is a digest line.
+    top_areas: list[str] = Field(default_factory=list)
+    # Per-area "priced to move" ceilings in CAD. A heuristic, and owner-tunable precisely
+    # because it is one - listings_triage reads these rather than carrying its own copy.
+    price_ceilings: dict[str, float] = Field(default_factory=dict)
 
 
 class Settings(BaseModel):
