@@ -104,7 +104,9 @@ J "0 7 1 * *" `
 
 # every 15m - heartbeat. NO LLM: it must work when the provider is down.
 # NOTE: --script paths resolve under the Hermes home scripts/ dir; bootstrap copies it there.
-& hermes cron create "every 15m" --name heartbeat --deliver local --no-agent --script "heartbeat.sh"
+# The .py twin, not the .sh: on Windows the runtime's bash can resolve to a WSL bash that
+# cannot read C:\ paths, which is the whole reason the Python port exists.
+& hermes cron create "every 15m" --name heartbeat --deliver local --no-agent --script "heartbeat.py"
 
 Write-Host ""
 Write-Host "Created. Verify:  hermes cron list"

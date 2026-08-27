@@ -20,7 +20,13 @@
 
 set -uo pipefail
 
-HC_URL="${HEALTHCHECKS_BASE_URL:-}"
+# HEALTHCHECKS_URL is the complete ping URL healthchecks.io hands you, and is what the .py
+# twin and the live .env use. HEALTHCHECKS_BASE_URL is the older base form kept working here
+# so an existing install does not silently stop pinging on upgrade.
+HC_URL="${HEALTHCHECKS_URL:-}"
+if [ -z "$HC_URL" ] && [ -n "${HEALTHCHECKS_BASE_URL:-}" ]; then
+  HC_URL="${HEALTHCHECKS_BASE_URL%/}/heartbeat"
+fi
 ALERT_EMAIL="${OWNER_EMAIL:-}"
 HH="${HERMES_HOME:-$HOME/.hermes}"
 TICKER="$HH/cron/ticker_heartbeat"
@@ -68,5 +74,5 @@ if [ -n "$problems" ]; then
   exit 1
 fi
 
-[ -n "$HC_URL" ] && curl -fsS -m 10 --retry 3 "${HC_URL}/heartbeat" >/dev/null 2>&1
+[ -n "$HC_URL" ] && curl -fsS -m 10 --retry 3 "$HC_URL" >/dev/null 2>&1
 exit 0

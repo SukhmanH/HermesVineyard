@@ -71,10 +71,14 @@ echo "    verify with: hermes skills list | grep spray-log"
 
 # 4. Heartbeat script. `hermes cron create --script` resolves paths under $HERMES_HOME/scripts/,
 #    NOT the repo - a script left in the repo is silently never found.
-echo "==> Installing heartbeat.sh into $HERMES_HOME/scripts/"
+#    Both twins are installed: setup-jobs.sh registers the .sh, setup-jobs.ps1 registers the
+#    .py, because on Windows the runtime's bash can resolve to a WSL bash that cannot read
+#    C:\ paths. Whichever one is registered, the other is harmless sitting beside it.
+echo "==> Installing heartbeat.sh + heartbeat.py into $HERMES_HOME/scripts/"
 mkdir -p "$HERMES_HOME/scripts"
 cp "$REPO/hermes/install/heartbeat.sh" "$HERMES_HOME/scripts/heartbeat.sh"
-chmod +x "$HERMES_HOME/scripts/heartbeat.sh"
+cp "$REPO/hermes/install/heartbeat.py" "$HERMES_HOME/scripts/heartbeat.py"
+chmod +x "$HERMES_HOME/scripts/heartbeat.sh" "$HERMES_HOME/scripts/heartbeat.py"
 
 # 5. Libraries Hermes reaches for in execute_code. These are NOT the MCP server's dependencies —
 #    they must be installed in the interpreter code execution actually uses. Getting this wrong
