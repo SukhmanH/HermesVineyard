@@ -7,9 +7,8 @@ until harvest.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
-
 import pytest
+from helpers import days_ago, today_local
 
 from vineyard_mcp.maturity import (
     correct_sample,
@@ -19,11 +18,11 @@ from vineyard_mcp.maturity import (
     set_fruit_target,
 )
 
-YEAR = date.today().year
+YEAR = today_local().year
 
 
 def _ago(n):
-    return (date.today() - timedelta(days=n)).isoformat()
+    return days_ago(n)
 
 
 # ── Setting a target by message ──────────────────────────────────────────────

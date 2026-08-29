@@ -7,6 +7,8 @@ product nobody owns at a rate nobody verified.
 
 from __future__ import annotations
 
+from helpers import days_ago
+
 from vineyard_mcp.advisory import (
     compute_gdd,
     log_recommendation,
@@ -67,9 +69,8 @@ def test_empty_input_is_not_complete():
 # ── Protection status ────────────────────────────────────────────────────────
 
 def test_spray_status_reports_days_since_and_lapse(db, juan):
-    from datetime import date, timedelta
 
-    old = (date.today() - timedelta(days=16)).isoformat()
+    old = days_ago(16)
     _spray(db, juan, log_date=old)
     status = spray_status(db, "B3")
     entry = status["protection"][0]
@@ -96,10 +97,9 @@ def test_blocks_never_sprayed_are_surfaced(db, juan):
 def test_consecutive_same_resistance_group_is_flagged(db, juan):
     """Repeating a FRAC group breeds resistance - the survivors are the population that
     tolerated the last pass. Three in a row must be said out loud."""
-    from datetime import date, timedelta
 
     for n in (30, 20, 10):
-        _spray(db, juan, log_date=(date.today() - timedelta(days=n)).isoformat())
+        _spray(db, juan, log_date=days_ago(n))
     rot = spray_status(db, "B3")["rotation"]
     assert rot and rot[0]["frac_group"] == "M2"
     assert rot[0]["consecutive"] == 3
@@ -153,14 +153,13 @@ def test_options_carry_the_temperature_ceiling(db):
 # ── Task cadence ─────────────────────────────────────────────────────────────
 
 def test_task_cadence_compares_against_your_own_median(db, juan):
-    from datetime import date, timedelta
 
     from vineyard_mcp.compliance import commit_task_log, draft_task_log
 
-    for block, days_ago in (("B1", 5), ("B3", 8), ("N2", 40)):
+    for block, age in (("B1", 5), ("B3", 8), ("N2", 40)):
         out = draft_task_log(db, juan, {
             "task_type": "deshoje", "hours_total": 6, "block_code": block,
-            "log_date": (date.today() - timedelta(days=days_ago)).isoformat()})
+            "log_date": days_ago(age)})
         present_confirmation(db, out["confirm_token"])
         commit_task_log(db, out["confirm_token"], "si")
 

@@ -8,9 +8,9 @@ readings. A confident projection built on bad data is worse than no projection.
 from __future__ import annotations
 
 import sqlite3
-from datetime import date, timedelta
 
 import pytest
+from helpers import days_ago, today_local
 
 from vineyard_mcp.maturity import (
     compute_et0,
@@ -20,11 +20,11 @@ from vineyard_mcp.maturity import (
     water_balance,
 )
 
-YEAR = date.today().year
+YEAR = today_local().year
 
 
 def _ago(n):
-    return (date.today() - timedelta(days=n)).isoformat()
+    return days_ago(n)
 
 
 def _target(db, code="B3", lo=23.0, hi=25.0, **over):
