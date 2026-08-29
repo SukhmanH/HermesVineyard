@@ -20,8 +20,14 @@ the run stuck in `running`.
 
 ## Prevention (verified where stated)
 
-- **Pin every job's provider** (`--provider` at create) — unpinned jobs are silently SKIPPED by
-  the spend-guard on any global config drift (seen live 2026-08-24). All jobs are pinned.
+- **Pin every job's provider AND model** (`--provider` *and* `--model` at create) — the
+  spend-guard watches the whole inference config, and a job pinned on only one half still counts
+  as unpinned. Provider-only pinning was believed sufficient after 2026-08-24; it is not.
+  On 2026-08-29 the global *model* drifted (`poolside/laguna-s-2.1:free` →
+  `stepfun/step-3.7-flash:free`) and `grower_daily_report` was skipped with a pinned provider.
+  Repair already-created jobs with `hermes/cron/pin-jobs.sh <provider> <model> --apply`
+  (`hermes cron edit` in a loop) — **never** by re-running `setup-jobs.sh`, which creates a
+  second full set of jobs rather than fixing the existing ones.
 - **`--workdir` on every agent job** — without it jobs run blind (no HERMES.md).
 - **healthchecks.io dead-man's switch** — the 15-min heartbeat pings it; absence of ping emails
   the owner. NEEDS OWNER: create the check, put the URL in the environment (QUESTIONS_FOR_OWNER).
@@ -29,6 +35,26 @@ the run stuck in `running`.
   Agent config — candidate knob, not yet found in the source. Next investigation step: grep the
   runtime source for client timeout defaults; if configurable, set a hard ceiling (e.g. 300 s)
   so a stalled provider fails the job (which retries + alerts) instead of hanging forever.
+
+## Config drift — a job stopped running and nobody was told
+
+The spend-guard alert fires **once per job**, then the job stays skipped in silence. So the
+symptom you actually notice is *absence*: a report that did not arrive. Treat one drift alert as
+evidence about **every** job on the host, not just the one named in it — they were all created
+by the same script with the same flags.
+
+1. `hermes cron runs` — skipped runs, and which jobs have not run since the drift.
+2. `hermes config get model.provider` / `hermes config get model.model` — what the global config
+   moved *to*.
+3. Decide which model the jobs should be pinned to (see below), then
+   `hermes/cron/pin-jobs.sh <provider> <model>` to preview, `--apply` to commit.
+
+**Do not reflexively pin whatever the global config drifted to.** Both sides of the 2026-08-29
+drift were `:free` models, and `hermes/config.yaml.example` is explicit that this deployment must
+never run on a free/auto model: extraction from unpunctuated voice-note Spanish is the hardest
+thing here, and a silent quality drop degrades compliance records invisibly rather than loudly.
+Pin the model this deployment is supposed to run, which may not be the one the global config now
+names.
 
 ## Escalation path
 

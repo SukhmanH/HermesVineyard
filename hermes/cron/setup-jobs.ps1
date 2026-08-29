@@ -3,17 +3,32 @@
 # FLAGS VERIFIED against the installed Hermes CLI on 2026-08-24 (see setup-jobs.sh header for
 # the full story): hermes cron create <schedule> <prompt> --name X --deliver Y --workdir Z
 #   --skill S --provider P. --workdir is NOT optional (jobs run blind without it - no HERMES.md).
-# --provider pins the job so a later global config change cannot trip the spend-guard that
-# silently SKIPS unpinned jobs ("global inference config drifted", seen live 2026-08-24).
+# --provider AND --model must BOTH be pinned. The spend-guard watches the whole inference
+# config: on 2026-08-29 the global MODEL drifted (poolside/laguna-s-2.1:free ->
+# stepfun/step-3.7-flash:free) and grower_daily_report was skipped despite a pinned provider.
+# A job pinned on only one half still counts as unpinned.
 #
 # Jobs do NOT fire until the gateway runs: hermes gateway status (read the text, exit code lies).
 
 param(
     [string]$CrewGroupJid = $env:CREW_GROUP_JID,
     [string]$GrowerWa = $env:GROWER_WA,
-    [string]$JobProvider = $(if ($env:HERMES_JOB_PROVIDER) { $env:HERMES_JOB_PROVIDER } else { "nous" }),
+    [string]$JobProvider = $env:HERMES_JOB_PROVIDER,
+    [string]$JobModel = $env:HERMES_JOB_MODEL,
     [string]$Repo = (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
 )
+
+# No defaults for these two on purpose. An implicit model is the bug this guard exists to
+# prevent: a default silently goes stale the next time the global config moves, and the failure
+# mode is a job that stops running rather than one that errors.
+if (-not $JobProvider) {
+    Write-Error "Set HERMES_JOB_PROVIDER (or -JobProvider). See: hermes config get model.provider"
+    exit 1
+}
+if (-not $JobModel) {
+    Write-Error "Set HERMES_JOB_MODEL (or -JobModel). See: hermes config get model.model"
+    exit 1
+}
 
 if (-not $GrowerWa) {
     # Fall back to the Hermes home .env (C:\Users\<u>\AppData\Local\hermes\.env on Windows).
@@ -36,7 +51,7 @@ if ($GrowerWa) { $GrowerDest = "whatsapp:$GrowerWa" } else {
 function J {
     param([string]$Schedule, [string]$Prompt, [string]$Name, [string]$Deliver, [string[]]$Skills)
     $args = @("cron", "create", $Schedule, $Prompt, "--name", $Name, "--deliver", $Deliver,
-              "--workdir", $Repo, "--provider", $JobProvider)
+              "--workdir", $Repo, "--provider", $JobProvider, "--model", $JobModel)
     foreach ($s in $Skills) { $args += @("--skill", $s) }
     & hermes @args
     if ($LASTEXITCODE -ne 0) { Write-Error "Failed creating $Name"; exit 1 }

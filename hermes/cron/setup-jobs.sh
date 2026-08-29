@@ -37,11 +37,21 @@ else
   GROUP="whatsapp:${CREW}"
 fi
 
-j() { hermes cron create "$@" --workdir "$REPO" --provider "${HERMES_JOB_PROVIDER:-nous}"; }
-# --provider pins every job to the current global provider. Without it, a later config change
-# (e.g. openrouter -> nous) trips the spend-guard and silently SKIPS every unpinned job:
-# "Skipped to prevent unintended spend: global inference config drifted" (seen live 2026-08-24).
-# Override with HERMES_JOB_PROVIDER if the provider id ever changes.
+# The spend-guard watches BOTH halves of the inference config. Pinning only --provider is NOT
+# enough: on 2026-08-29 the global MODEL drifted (poolside/laguna-s-2.1:free ->
+# stepfun/step-3.7-flash:free) and grower_daily_report was skipped even though its provider was
+# pinned. Pin --provider AND --model on every agent job, or the guard treats it as unpinned.
+#
+# No defaults here on purpose. An implicit model is the bug this block exists to prevent: a
+# default silently goes stale the next time the global config moves, and the failure mode is a
+# job that stops running rather than one that errors. Set both explicitly.
+: "${HERMES_JOB_PROVIDER:?set HERMES_JOB_PROVIDER (see: hermes config get model.provider)}"
+: "${HERMES_JOB_MODEL:?set HERMES_JOB_MODEL to a pinned model id (see: hermes config get model.model)}"
+
+j() {
+  hermes cron create "$@" --workdir "$REPO" \
+    --provider "$HERMES_JOB_PROVIDER" --model "$HERMES_JOB_MODEL"
+}
 
 # 04:30 — the grower's daily report, and the day's FIRST weather fetch: it caches the forecast so
 # every later job and question reads weather_cache instead of re-fetching. Runs inside quiet hours
