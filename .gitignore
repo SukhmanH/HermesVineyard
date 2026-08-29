@@ -4,9 +4,12 @@ config/.env
 *.key
 
 # Data: the compliance record and its backups live on the machine, not in git
-data/
-backups/
-exports/
+# Anchored to the repo root with a leading slash. Bare `exports/` and `backups/` match at
+# ANY depth, which silently swallowed .hermes/skills/exports/ - a skill three cron jobs
+# depend on. It was on the authoring machine and absent from every clone.
+/data/
+/backups/
+/exports/
 *.db
 *.db-wal
 *.db-shm
