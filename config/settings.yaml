@@ -23,8 +23,14 @@ sites:
      eccc_station: Penticton,  station_distance_km: 2, wunderground_pws: IPENTI39}
   - {key: naramata,  label: Naramata,  lat: 49.596, lon: -119.587, eccc_citypage: s0000351,
      eccc_station: Summerland, station_distance_km: 6, wunderground_pws: IBCNARAM1}
+  # OWNER DECISION 2026-08-29: Oliver is ECCC-only. IOLIVE36 sat in Oliver town, off-site and
+  # in a different thermal pocket than the blocks; the owner would rather read Osoyoos and
+  # know it is 18 km away than read a town station and think it is local. No wunderground_pws
+  # here means the conditions ladder starts at ECCC currentConditions (dew point estimated
+  # via Magnus - see weather-fetch/references/wunderground.md), which is the documented
+  # fallback, not a degraded path.
   - {key: oliver,    label: Oliver,    lat: 49.183, lon: -119.552, eccc_citypage: s0000397,
-     eccc_station: Osoyoos,    station_distance_km: 18, wunderground_pws: IOLIVE36}
+     eccc_station: Osoyoos,    station_distance_km: 18}
 
 spray_window:
   wind_min_kmh: 3            # dead calm = inversion drift risk, not "extra safe"

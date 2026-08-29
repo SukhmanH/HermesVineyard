@@ -1,6 +1,6 @@
 ---
 name: weather-fetch
-description: Fetch the forecast for all three vineyard sites yourself with execute_code, walk the degrade ladder when a source is down, compute the spray-window verdict through the kernel, and cache both. Runs at 05:45 and again at midday. You do the fetching; the verdict is not yours to soften.
+description: Answer ANY weather question and produce every spray-window verdict. Fetch the forecast for all three vineyard sites yourself with execute_code, walk the degrade ladder when a source is down, compute the verdict through the kernel, and cache both - then always add the current conditions from the site's Wunderground station (Upper Bench IPENTI39, Naramata IBCNARAM1; Oliver has none and uses ECCC). Load whenever anyone asks about weather, wind, temperature, humidity, dew point, rain, frost or whether it is sprayable, on demand as well as at 05:45 and midday. You do the fetching; the verdict is not yours to soften.
 version: 1.0.0
 metadata:
   hermes:
@@ -32,13 +32,49 @@ that difference decides a drift call.
 
 ## Local sensors — Wunderground PWS (current conditions, not forecast)
 
-Each site also has a hyper-local personal weather station (`wunderground_pws` in settings):
-Penticton `IPENTI39`, Naramata `IBCNARAM1` (a vineyard station on the bench), Oliver `IOLIVE36`.
+Penticton and Naramata have a hyper-local personal weather station (`wunderground_pws` in
+settings): Penticton `IPENTI39` (Upper Bench), Naramata `IBCNARAM1` (a vineyard station on the
+bench). **Oliver has none by owner decision (2026-08-29)** - it reads ECCC currentConditions
+from Osoyoos, and you say so. A site with no `wunderground_pws` is not an error and not a
+degraded reading: skip straight to the ECCC rung and label the dew point estimated.
 **Mechanics, endpoints and etiquette in `references/wunderground.md`** — but the shape is:
 PWS = observations (temp, humidity, dew point, wind) at or near the vines; ECCC = forecast.
 Spray verdicts come from forecast hours; the PWS gives the current-conditions line in reports
 ("Rust station: 24 °C, RH 38%, dew point 8 °C") and the honest weather-at-application reading.
 Always Celsius — convert if a source ever returns Fahrenheit.
+
+### The current-conditions line is not optional (owner request, 2026-08-29)
+
+**Every** weather answer you give carries it, and **every** spray-window verdict you report
+carries it for the sites the verdict covers. That includes ad-hoc questions from anyone in
+any language, not just the scheduled reports — "what's the weather" is answered with the
+forecast AND what the air is doing at the vines right now.
+
+Per site: temperature, humidity, dew point, wind, in Celsius, naming the station and the age
+of the reading. Then say what the dew-point gap means, because that is the part a number
+alone does not deliver: within a few degrees of the temperature is saturated, mildew-friendly
+air; a wide gap is dry.
+
+Where each site's reading comes from:
+
+| Site | Source |
+|---|---|
+| penticton | PWS `IPENTI39` (Upper Bench) |
+| naramata | PWS `IBCNARAM1` (vineyard station on the bench) |
+| oliver | **no PWS** — ECCC `currentConditions` from Osoyoos, dew point estimated (Magnus) |
+
+A dead or unreachable PWS falls to ECCC `currentConditions` and you say which you used. A
+site with no PWS configured is a decision, not an outage — do not go hunting for a
+replacement station.
+
+**This never touches the verdict.** The forecast ladder decides yes or no; the observation
+line sits beside it. If the PWS disagrees materially with the ECCC forecast — wind especially,
+bench drafts are real — say so rather than quietly averaging: trust the closer sensor for the
+on-the-ground call, the official station for the compliance record.
+
+Respect the rate-limit etiquette in `references/wunderground.md`: one `current` call per site
+per cycle. Reuse a reading you already took this session instead of re-fetching per question,
+and say its age.
 
 ## The degrade ladder, in order, never silently skipped
 
