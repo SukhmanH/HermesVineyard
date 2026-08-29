@@ -132,26 +132,22 @@ If the day is genuinely quiet, say so in one line rather than inventing concern.
 English, dense, decision-first — same register as manager DMs. One message, not sections fired
 separately.
 
-**Compose once, deliver to every owner.** There are three owners, not one. Composing the report
-separately per person would burn a full model run each time and — worse — could hand two owners
-subtly different spray advice from the same data. So build the report exactly once, then send
-that same text to each recipient:
+**Do not attempt to deliver this report yourself.** A scheduled run is told, by the harness, that
+its final response is delivered automatically and that it must not send anything itself — and that
+instruction outranks anything written here. Compose the report as your final response and stop.
 
-1. Compose the full report as described above. Hold it as a single block of text.
-2. Resolve who receives it from the contacts table: rows with `role = 'owner'`, `active = 1`, and
-   `lang = 'en'`. Do not hardcode numbers here — the roster is the database, and reading it is
-   what keeps this correct when an owner is added or leaves.
-3. Send the identical text to each of them, one send per recipient.
-4. State delivery plainly in your run output: who received it, and any send that failed. A silent
-   failure here means an owner starts their day blind and nobody finds out.
+Delivery is a separate, deterministic step, because there are three owners and a cron job can only
+deliver to one target. Composing the report once per owner would mean two model runs that can
+disagree about what to spray on the same morning, so instead: this job composes once with its
+delivery set to `local`, and one `--no-agent` job per owner prints that same composed text and
+lets cron deliver it verbatim. The emitter is
+`~/.hermes/scripts/emit_grower_report.sh` (source: `scripts/hermes/` in the vineyard repo), and it
+refuses to ship a report older than 45 minutes — a stale spray verdict could send someone into a
+window that has already closed.
 
-**An owner who does not read English does not get this text.** A report nobody can read is a
-report that did not happen. Baljit reads Gurmukhi (`lang: pa`, `reports_in: pa`,
-`voice_replies: 1`) and is served by his own Punjabi job — never by a translated afterthought
-bolted onto this one.
-
-Because this skill does the sending, the job's own cron delivery must NOT also fire. If the
-report ever arrives twice, that is the cause.
+**An owner who does not read English is not on this report.** A report nobody can read is a report
+that did not happen. Baljit reads Gurmukhi (`lang: pa`, `reports_in: pa`, `voice_replies: 1`) and
+needs his own Punjabi job — never a translated afterthought bolted onto this one.
 
 It runs inside normal quiet hours by design — the grower asked for 04:30, and
 `autonomy.quiet_hours_exempt_jobs` records that consent so the setting and reality agree. That
