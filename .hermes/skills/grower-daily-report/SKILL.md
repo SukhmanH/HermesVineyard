@@ -129,8 +129,29 @@ If the day is genuinely quiet, say so in one line rather than inventing concern.
 
 ## Shape and channel
 
-English, dense, decision-first — same register as manager DMs. WhatsApp DM to the grower
-(`GROWER_WA`), email as backup. One message, not sections fired separately.
+English, dense, decision-first — same register as manager DMs. One message, not sections fired
+separately.
+
+**Compose once, deliver to every owner.** There are three owners, not one. Composing the report
+separately per person would burn a full model run each time and — worse — could hand two owners
+subtly different spray advice from the same data. So build the report exactly once, then send
+that same text to each recipient:
+
+1. Compose the full report as described above. Hold it as a single block of text.
+2. Resolve who receives it from the contacts table: rows with `role = 'owner'`, `active = 1`, and
+   `lang = 'en'`. Do not hardcode numbers here — the roster is the database, and reading it is
+   what keeps this correct when an owner is added or leaves.
+3. Send the identical text to each of them, one send per recipient.
+4. State delivery plainly in your run output: who received it, and any send that failed. A silent
+   failure here means an owner starts their day blind and nobody finds out.
+
+**An owner who does not read English does not get this text.** A report nobody can read is a
+report that did not happen. Baljit reads Gurmukhi (`lang: pa`, `reports_in: pa`,
+`voice_replies: 1`) and is served by his own Punjabi job — never by a translated afterthought
+bolted onto this one.
+
+Because this skill does the sending, the job's own cron delivery must NOT also fire. If the
+report ever arrives twice, that is the cause.
 
 It runs inside normal quiet hours by design — the grower asked for 04:30, and
 `autonomy.quiet_hours_exempt_jobs` records that consent so the setting and reality agree. That
