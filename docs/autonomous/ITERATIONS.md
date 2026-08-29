@@ -137,3 +137,13 @@ One tight block per iteration: learned / changed / evidence / uncertain / failed
   REALTOR.ca (signing in is not enough - alerts must actually be sent to hbbrosfarms@gmail.com);
   healthchecks.io URL for the ping step.
 - Top priority: saved searches by owner; then label reads; then crew enrollment.
+
+## Iteration 6 addendum — healthchecks.io wired (2026-08-25)
+
+- Changed: HEALTHCHECKS_URL added to the live .env; heartbeat.py pings it on every green run
+  (reads the .env directly, so cron-spawned runs need no env inheritance). Ping verified live
+  (HTTP 200); heartbeat run completed green with the ping active.
+- Owner note given: in healthchecks.io, set the check to Period 15 min / Grace ~5 min so the
+  alarm fires ~20 min after the watchdog dies.
+- Dead-mans switch now complete: ticker stale OR gateway down OR process dead -> no ping ->
+  owner emailed from healthchecks.io infrastructure independent of this machine.

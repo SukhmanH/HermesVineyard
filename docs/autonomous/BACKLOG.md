@@ -51,3 +51,9 @@ Impact-ranked. Prune completed items. Each item: what + why it matters + what it
       binding (kernel + MCP + tests); block-data intake (registry.update_block + MCP + tests);
       weather history store (daily_obs migration + record/gdd tools + tests, live DB migrated);
       cron-hang runbook (docs/10); autonomous memory files.
+
+## Done (2026-08-25, iteration 6)
+- [x] Listings inbox LIVE (Gmail IMAP + allowlist incl. realtor.ca + typed filter)
+- [x] Heartbeat ported to Python (WSL-bash path bug) + verified green
+- [x] healthchecks.io dead-mans switch wired and ping verified
+- [ ] Owner: Zealty/REALTOR.ca saved searches with email alerts ON (signing in is not enough)

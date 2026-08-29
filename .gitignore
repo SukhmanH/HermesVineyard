@@ -28,3 +28,7 @@ venv/
 .DS_Store
 Thumbs.db
 data/eval-*.db*
+
+# Logs. Debug output from the IMAP/gateway paths can contain credentials and message
+# bodies - keep the whole class out of git rather than judging each file.
+*.log
