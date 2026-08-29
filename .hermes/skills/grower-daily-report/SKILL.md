@@ -158,6 +158,17 @@ The grower reads this in two minutes, once a day, before deciding anything.
   facts, not guesses.
 - **New properties / listings** since yesterday — the grower hunts acreage; new rows in
   `listings` or anything notable from the listings inbox.
+
+  **Include the listing url.** The grower acts on these from their phone, and an MLS number
+  alone means retyping it into a browser to see a single photo. Select `url` alongside the
+  other fields and put it on its own line under the listing, the same way station ids sit under
+  the weather:
+
+      294 Road 18, Oliver — $1,299,900 (MLS 10398703)
+      https://…
+
+  If a row's `url` is null, say the listing and give the MLS number without inventing a link or
+  guessing at a search URL — a wrong link wastes more of the grower's time than no link.
 - **Grants & water notices** — read the `grants_watch` cron notepad state: funding changes AND
   Okanagan drought-level / water-restriction notices (same weekly scan). Only changes, new
   deadlines inside 30 days with days remaining, or prerequisite gaps (no current EFP number).
