@@ -92,7 +92,24 @@ automatic backup** when a PWS is dead or stale (derive dew point from its temp +
 `references/wunderground.md`, label it "estimated"), worker-reported last (marked as such).
 A PWS outage never downgrades a spray verdict — verdicts ride on the forecast ladder only.
 
-Fetch with `execute_code` and `requests` (httpx is not installed in this environment). Parse defensively: ECCC XML is clunky and occasionally
+Fetch with `execute_code` and `httpx`. Both `httpx` and `requests` are installed and
+either works; `httpx` is the one in `requirements-agent.txt`, so it is the one a rebuilt
+host is guaranteed to have.
+
+> **A note about this line, worth more than the line itself.** It used to read "httpx is
+> not installed in this environment" — written into this skill by Hermes after hitting a
+> real ImportError, back when bootstrap had aborted before installing the agent libraries
+> (9907dee). The libraries were installed later. The claim was never revisited, and it
+> steered every run onto `requests`, which is NOT in requirements-agent.txt and would be
+> absent on a rebuilt host. Verified false 2026-08-29: `execute_code` -> `httpx` ->
+> api.weather.com returned 200 with live data.
+>
+> **A learned fact about the environment is perishable; a learned fact about the vineyard
+> is not.** "Osoyoos is 18 km south" stays true. "Library X is missing" was true for about
+> a week. When you write the second kind into a skill, date it and say how to re-check it,
+> so the monthly review can retire it instead of inheriting it forever.
+
+Parse defensively: ECCC XML is clunky and occasionally
 malformed. If a site fails but others succeed, report per-site rather than failing the whole run. Walk back 2–3 UTC hours on empty directories — a publish gap of one hour is normal, not an outage.
 
 **⚠ ECCC publishes hours in UTC.** Keep the offset on every timestamp you pass
