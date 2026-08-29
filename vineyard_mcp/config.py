@@ -162,8 +162,12 @@ def get_settings() -> Settings:
     return Settings(
         db_path=_resolve(os.getenv("DB_PATH"), "data/hermes.db"),
         media_dir=_resolve(os.getenv("MEDIA_DIR"), "data/media"),
-        export_dir=_resolve(os.getenv("EXPORT_DIR"), "exports"),
-        backup_dir=_resolve(os.getenv("BACKUP_DIR"), "backups"),
+        # Under data/, matching tools/build_exports.py. These disagreed until 2026-08-29:
+        # the exporter wrote data/backups while this said backups/, so the kernel and the
+        # exports skill both looked somewhere the backups had never been - and a working
+        # backup read as a missing one. Change these two together or not at all.
+        export_dir=_resolve(os.getenv("EXPORT_DIR"), "data/exports"),
+        backup_dir=_resolve(os.getenv("BACKUP_DIR"), "data/backups"),
         timezone=os.getenv("TZ") or data.get("timezone") or "America/Vancouver",
         sites=[Site(**s) for s in data.get("sites", [])],
         spray_window=SprayWindow(**(data.get("spray_window") or {})),

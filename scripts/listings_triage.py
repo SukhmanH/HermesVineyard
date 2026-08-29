@@ -40,11 +40,60 @@ from email.utils import parseaddr
 
 from imapclient import IMAPClient
 
-# The cron job this script belongs to. setup-jobs.sh mints NEW job ids on every host, so a
-# hardcoded value silently writes the notepad for a job that does not exist there. Set
-# LISTINGS_JOB_ID in .env on each host; the literal below is this laptop's, kept as a fallback.
-JOB_ID = os.environ.get("LISTINGS_JOB_ID") or "1ff50fb0cbdc"
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _load_env_file(path: str) -> None:
+    """Populate os.environ from a .env file, without overriding what is already set.
+
+    Deliberately stdlib rather than python-dotenv: this script runs under whichever
+    interpreter `execute_code` uses, and that venv is provisioned from
+    requirements-agent.txt, which does not carry dotenv. Importing it here would make the
+    script depend on an install step that has already been missed once on this project.
+
+    It has to happen at all because a cron-spawned run inherits no shell environment - the
+    same trap env.example documents for the heartbeat. Without this, IMAP_USER and friends
+    are absent at 30-minute intervals forever and the only symptom is a poll that finds
+    nothing.
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key, value = key.strip(), value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except FileNotFoundError:
+        pass
+
+
+_load_env_file(os.path.join(REPO, ".env"))
+
+# The cron job this script belongs to. setup-jobs.sh mints NEW job ids on every host, so
+# there is no correct default - a literal from another machine writes the notepad of a job
+# that does not exist here, and dedupe then fails silently while every run still looks fine.
+# Refuse to run instead: listings triage without working dedupe re-reports the same MLS
+# numbers forever, which trains the owner to ignore it.
+JOB_ID = os.environ.get("LISTINGS_JOB_ID")
+
+
+def require_job_id() -> str:
+    """The notepad id, or exit.
+
+    Checked HERE and not at import: a module that exits while being imported takes the test
+    suite down with it, which is how this was first written. Re-read from the environment on
+    each call so an id supplied after import (or by a test) is honoured."""
+    job_id = os.environ.get("LISTINGS_JOB_ID") or JOB_ID
+    if not job_id:
+        sys.exit(
+            "LISTINGS_JOB_ID is not set. Read this host's id from `hermes cron list` (the "
+            "listings_poll row) and put it in the repo's .env. Refusing to run with a guessed "
+            "id: the notepad would belong to no job and dedupe would silently do nothing."
+        )
+    return job_id
 DB_PATH = os.environ.get("DB_PATH") or os.path.join(REPO, "data", "hermes.db")
 
 FOLDERS = ["INBOX", "[Gmail]/Spam"]
@@ -348,7 +397,7 @@ _MISSING = re.compile(r"^No notepad key '.*' for job ")
 
 def note_get(key: str):
     """Read a notepad key. The CLI prints a sentinel and exits 0 when the key is absent."""
-    r = subprocess.run(["hermes", "cron", "notepad", JOB_ID, "get", key],
+    r = subprocess.run(["hermes", "cron", "notepad", require_job_id(), "get", key],
                        capture_output=True, text=True)
     if r.returncode != 0:
         return None
@@ -364,7 +413,7 @@ def note_get(key: str):
 def note_set(key: str, value) -> tuple[bool, str]:
     if isinstance(value, (dict, list)):
         value = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-    r = subprocess.run(["hermes", "cron", "notepad", JOB_ID, "set", key, value],
+    r = subprocess.run(["hermes", "cron", "notepad", require_job_id(), "set", key, value],
                        capture_output=True, text=True)
     return r.returncode == 0, (r.stdout.strip() + r.stderr.strip())
 

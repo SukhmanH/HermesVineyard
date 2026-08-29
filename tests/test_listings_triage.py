@@ -180,8 +180,22 @@ class TestNotepadAndPruning:
             stdout = "No notepad key 'seen_keys' for job 1ff50fb0cbdc."
             stderr = ""
 
+        monkeypatch.setenv("LISTINGS_JOB_ID", "1ff50fb0cbdc")
         monkeypatch.setattr(lt.subprocess, "run", lambda *a, **k: Result())
         assert lt.note_get("seen_keys") is None
+
+    def test_notepad_refuses_to_run_without_a_job_id(self, monkeypatch):
+        """A guessed id writes the notepad of a job that does not exist, and dedupe then
+        fails silently while every run still looks successful. Refuse instead."""
+        monkeypatch.delenv("LISTINGS_JOB_ID", raising=False)
+        monkeypatch.setattr(lt, "JOB_ID", None)
+        with pytest.raises(SystemExit) as exc:
+            lt.require_job_id()
+        assert "LISTINGS_JOB_ID" in str(exc.value)
+
+    def test_job_id_comes_from_the_environment(self, monkeypatch):
+        monkeypatch.setenv("LISTINGS_JOB_ID", "099328af3438")
+        assert lt.require_job_id() == "099328af3438"
 
 
 class TestSenderAllowlist:

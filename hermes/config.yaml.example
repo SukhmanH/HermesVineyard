@@ -9,18 +9,22 @@ timezone: "America/Vancouver"      # GLOBAL. There is no per-job timezone upstre
                                    # before and nothing warns you. Verify the system clock too.
 
 # ── Model ───────────────────────────────────────────────────────────────────────────────────
+# SCHEMA VERIFIED against the live host 2026-08-29. The provider is configured INLINE here.
+# There is NO top-level `providers:` map in this version - an earlier draft of this file
+# documented one and it is simply not read, so a provider defined that way is silently ignored.
 model:
-  provider: "ninerouter"
-  model: "<PINNED-MODEL-ID>"       # PIN a specific reliable model. Never a free/auto combo:
-                                   # extraction from unpunctuated voice-note Spanish is the
-                                   # hardest thing here, and a silent model swap degrades
-                                   # compliance data quality invisibly.
-
-providers:
-  ninerouter:
-    type: "openai"                 # OpenAI-compatible
-    base_url: "${LLM_BASE_URL}"    # 9router over Tailscale
-    api_key: "${LLM_API_KEY}"
+  default: "<PINNED-MODEL-ID>"     # note the key is `default`, not `model`
+  provider: "custom"
+  base_url: "http://localhost:20128/v1"   # 9router, local to the box
+  api_key: "${HERMES_CUSTOM_LOCALHOST_20128_API_KEY}"   # lives in ~/.hermes/.env
+  # PIN a specific reliable model. Never a free/auto combo: extraction from unpunctuated
+  # voice-note Spanish is the hardest thing here, and a silent model swap degrades compliance
+  # data quality invisibly rather than erroring.
+  #
+  # A ROUTER COMBO IS A FREE/AUTO COMBO. 9router's `google` route has owned_by: "combo" - it
+  # picks the model for you, and the drift guard cannot see inside the router's table. Pinning
+  # a route name satisfies the guard without delivering what the guard is for. Pin a concrete
+  # id (e.g. gemini/gemini-3.7-flash) unless you have accepted that trade deliberately.
 
 auxiliary:
   vision: {provider: "auto", model: ""}    # product labels and pest/disease photos
@@ -108,16 +112,21 @@ gateway:
 # ── Compliance kernel ───────────────────────────────────────────────────────────────────────
 mcp_servers:
   vineyard:
-    command: "python"
+    # ABSOLUTE path to the repo venv's interpreter. NOT bare "python": Ubuntu ships python3
+    # with no `python` alias, which is the same trap that aborted bootstrap at step 3 (9907dee).
+    command: "/home/waris/hermes-vineyard/.venv/bin/python"
     args: ["-m", "vineyard_mcp.server"]
-    cwd: "/opt/hermes-vineyard"
+    cwd: "/home/waris/hermes-vineyard"
     timeout: 30
     tools: {prompts: false, resources: false}
     # Tools reach the agent as mcp_vineyard_<tool_name>. /reload-mcp picks up new ones.
 
 # ── Cron ────────────────────────────────────────────────────────────────────────────────────
 cron:                              # Jobs live in ~/.hermes/cron/jobs.json, NOT here.
-  model: "<PINNED-MODEL-ID>"       # this block is defaults for unpinned jobs
+  model: "<PINNED-MODEL-ID>"       # defaults for unpinned jobs - but do not rely on it.
+                                   # The guard checks PROVIDER AND MODEL on the job itself;
+                                   # a job pinned on only one half counts as unpinned and is
+                                   # silently skipped. See hermes/cron/pin-jobs.sh.
   preflight: true
   model_drift_guard: true          # prevent silent provider switches mid-season
   failure_nudge_threshold: 3       # independent path to "this has been broken a while"
