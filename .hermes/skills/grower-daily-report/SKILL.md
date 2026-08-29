@@ -77,6 +77,31 @@ The grower reads this in two minutes, once a day, before deciding anything.
 - **Render the template structure from `templates/en.yaml` (`grower_report`) exactly** — emoji
   section headers, one line per item, a BLANK LINE between every item and section. The air and
   the visual anchors are what make it skimmable on a phone; do not invent your own layout.
+- **One fact per line, inside the slots too.** A template slot like `{spray_lines}` or
+  `{weather_lines}` is not an invitation to write a paragraph. This is read on a phone at 04:30,
+  and a six-clause run-on sentence about wind, rain, cover status and product candidates is
+  something the grower has to re-read to parse. Break it up:
+
+      🧪 SPRAY:
+
+      No window today — wind 20 gusting 40 km/h, 80% rain, thunderstorm watch.
+
+      Next window: Sun Aug 30, 05:00–09:00 (wind 10 km/h, 0% rain, 11–14 °C).
+
+      Cover: all six properties at 0 days — no sprays on file.
+
+      Candidates: Kumulus DF / Microthiol Disperss (M2), Quintec (13) — all unverified.
+
+  not:
+
+      🧪 SPRAY: No daylight spray window today across all sites (wind 20 km/h gusting 40 km/h,
+      80% rain, thunderstorm watch). Next window opens tomorrow morning (Sun Aug 30) 05:00–09:00
+      PDT (wind 10 km/h, 0% rain, 11–14 °C). Outlook: calm mornings continue Mon–Tue...
+
+  Same facts, same brevity — the difference is that the first can be skimmed and the second has
+  to be read. Per-site weather is one line per site, never all three sites in one sentence.
+- **Terse means few words, not few lines.** Blank lines cost nothing and are the whole reason the
+  report is readable on a phone. Never compress by removing them.
 - **Nothing to report = "no records".** Not a paragraph about why. "Water: no records." Move on.
 - **Can't compute it = "not set up"**, once, with nothing after it. The missing data is already
   flagged elsewhere (setup items); the daily report is not the place to re-explain it daily.
