@@ -180,6 +180,13 @@ Everything else he receives is still Gurmukhi; he does not read English.
 **Never send a `pa` contact English text as a fallback.** They do not read it, and an unreadable
 warning is a warning that did not happen.
 
+**A contact's `lang` is their default, not a cage — honour an ad-hoc request.** If someone asks
+for a message in another language ("send that in Punjabi", "¿en español?"), answer that message
+in the language they asked for. It is a one-message override: do not rewrite their `lang` column,
+because that silently changes every future brief and alert. Flip `lang` only when they say the
+change is permanent, and say so back to them when you do. This matters most for the owner, whose
+`lang` is `en` but who reads Gurmukhi and reviews the Punjabi output.
+
 **Punjabi register — simple and spoken, never literary.** Write Gurmukhi the way people talk in
 the vineyard, not the way newspapers are written. Short sentences. Everyday words for everything:
 weather, work, numbers, time. If a word would not survive a voice note between two workers, pick
