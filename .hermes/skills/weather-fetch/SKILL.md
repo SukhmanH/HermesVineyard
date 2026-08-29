@@ -56,8 +56,8 @@ automatic backup** when a PWS is dead or stale (derive dew point from its temp +
 `references/wunderground.md`, label it "estimated"), worker-reported last (marked as such).
 A PWS outage never downgrades a spray verdict — verdicts ride on the forecast ladder only.
 
-Fetch with `execute_code` and `httpx`. Parse defensively: ECCC XML is clunky and occasionally
-malformed. If a site fails but others succeed, report per-site rather than failing the whole run.
+Fetch with `execute_code` and `requests` (httpx is not installed in this environment). Parse defensively: ECCC XML is clunky and occasionally
+malformed. If a site fails but others succeed, report per-site rather than failing the whole run. Walk back 2–3 UTC hours on empty directories — a publish gap of one hour is normal, not an outage.
 
 **⚠ ECCC publishes hours in UTC.** Keep the offset on every timestamp you pass
 (`2026-08-21T22:00+00:00`, not `2026-08-21T22:00`) — the verdict converts offset-aware times to
