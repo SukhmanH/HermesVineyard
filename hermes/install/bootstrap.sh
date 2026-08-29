@@ -70,17 +70,10 @@ else:
     dirs = list(sk.get("external_dirs") or [])
     dirs.append(skills_dir)
     # Append as text rather than round-tripping: PyYAML would strip every comment.
-    text = text.rstrip() + "
-
-skills:
-  external_dirs:
-"
+    text = text.rstrip() + "\n\nskills:\n  external_dirs:\n"
     for entry in dirs:
-        text += '    - "%s"
-' % entry
-    text += "  write_approval: true
-  guard_agent_created: true
-"
+        text += '    - "%s"\n' % entry
+    text += "  write_approval: true\n  guard_agent_created: true\n"
     io.open(cfg, "w", encoding="utf-8").write(text)
     print("    registered", skills_dir)
 REGEOF
