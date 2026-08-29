@@ -78,15 +78,25 @@ eod_nothing: "📊 EOD — {date}. Quiet day: {n_tasks} tasks, no sprays, nothin
 grower_report: |
   🌄 Daily report — {date}
 
-  🧪 SPRAY: {spray_lines}
+  🧪 SPRAY:
 
-  🦠 Mildew pressure: {mildew_lines}
+  {spray_lines}
 
-  💧 Water: {water_lines}
+  🦠 Mildew pressure:
 
-  🌤️ Weather: {weather_lines}
+  {mildew_lines}
 
-  ⏳ Restricted Entry Interval active: {rei_list}
+  💧 Water:
+
+  {water_lines}
+
+  🌤️ Weather:
+
+  {weather_lines}
+
+  ⏳ Restricted Entry Interval active:
+
+  {rei_list}
 
   🏞️ Work by property:
 
@@ -96,11 +106,17 @@ grower_report: |
 
   {watch_lines}
 
-  🏡 New properties ({n}): {listing_lines}
+  🏡 New properties ({n}):
 
-  💰 Grants & water notices: {grant_lines}
+  {listing_lines}
 
-  🧭 On my own initiative: {agent_notes}
+  💰 Grants & water notices:
+
+  {grant_lines}
+
+  🧭 On my own initiative:
+
+  {agent_notes}
 grower_quiet: "🌄 Daily report — {date}. Quiet: no sprays due, no Restricted Entry Intervals running, {n_tasks} tasks logged. {watch_line}"
 
 # ── Degraded / failure states ────────────────────────────────────────────────
