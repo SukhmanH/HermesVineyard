@@ -17,11 +17,15 @@ dew point drive the mildew call; a station 18 km away in a hotter pocket does no
 |---|---|---|---|
 | penticton | `IPENTI39` | Penticton | Upper Bench |
 | naramata | `IBCNARAM1` | "Boulder Beach Vineyard" — a vineyard station on the bench | Naramata |
-| oliver | `IOLIVE36` | Oliver town, 0.7 km off site coords | Rust, Tucelnuit, Hwy 97, Cassini (5–9 km) |
+| oliver | **none** | ECCC-only by owner decision, 2026-08-29 | Rust, Tucelnuit, Hwy 97, Cassini |
 
 Station IDs live in `config/settings.yaml` under each site's `wunderground_pws`. If a station
 goes dead (PWS owners unplug them), find a replacement with the geolookup call below and update
 settings — do not silently report stale data.
+
+**A site may legitimately have no `wunderground_pws`** (Oliver, from 2026-08-29). That is a
+decision, not an outage: read ECCC `currentConditions` for it and name the station and its
+distance. Do not go looking for a replacement PWS for such a site.
 
 ## Endpoints
 

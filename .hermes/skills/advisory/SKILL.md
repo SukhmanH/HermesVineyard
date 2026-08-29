@@ -43,6 +43,16 @@ judge whether your advice was worth having.
 
 ## Sprays
 
+**Any spray recommendation carries the current conditions at that site** (owner request,
+2026-08-29): temperature, humidity, dew point, wind, from the site's Wunderground station —
+`IPENTI39` for Upper Bench, `IBCNARAM1` for Naramata, ECCC Osoyoos for Oliver, which has no
+PWS. Mechanics and the fallback ladder are in `/weather-fetch`.
+
+The verdict still rides on the ECCC forecast — a PWS has no forecast to give, so it cannot
+decide a window. But it is what the air is doing at the vines, and it is the difference
+between a manager reading a station 6 km across the lake and reading their own bench. Where
+the two disagree on wind, say so; that gap is a drift call.
+
 **You may only propose products `spray_options` returns.** That list is the shed. A product
 outside it is one nobody owns, and a rate outside the label is one nobody verified.
 
