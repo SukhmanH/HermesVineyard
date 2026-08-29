@@ -40,7 +40,10 @@ from email.utils import parseaddr
 
 from imapclient import IMAPClient
 
-JOB_ID = "1ff50fb0cbdc"
+# The cron job this script belongs to. setup-jobs.sh mints NEW job ids on every host, so a
+# hardcoded value silently writes the notepad for a job that does not exist there. Set
+# LISTINGS_JOB_ID in .env on each host; the literal below is this laptop's, kept as a fallback.
+JOB_ID = os.environ.get("LISTINGS_JOB_ID") or "1ff50fb0cbdc"
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.environ.get("DB_PATH") or os.path.join(REPO, "data", "hermes.db")
 
