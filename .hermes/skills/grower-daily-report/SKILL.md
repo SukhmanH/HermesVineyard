@@ -122,11 +122,25 @@ The grower reads this in two minutes, once a day, before deciding anything.
   "Pre-Harvest Interval" in full, every time.
 - **Mildew pressure + water lines** — the computed extras above; omit a section only when it
   genuinely has nothing to say (out of season), never pad it back in.
-- **Weather** — forecast summary per site (station named when it is not the site's own) PLUS
-  the current-conditions line from each site's local Wunderground station: temp, humidity,
-  dew point, wind, in Celsius (convert if a source returns Fahrenheit; endpoints in
-  `/weather-fetch` references). Dew point near the temperature = mildew-friendly air; say so
-  when the gap is small.
+- **Weather** — forecast summary per site PLUS the current-conditions line from each site's
+  local Wunderground station: temp, humidity, dew point, wind, in Celsius (convert if a source
+  returns Fahrenheit; endpoints in `/weather-fetch` references). Dew point near the temperature
+  = mildew-friendly air; say so when the gap is small.
+
+  **Station ids go on their own line under the site, never inline.** The grower is reading for
+  the forecast; a station code in the middle of the sentence is provenance interrupting the
+  thing they actually came for. Keep the reading line clean and put the source beneath it:
+
+      Penticton: 17°/11°, wind 20G40 km/h S, rain 80%, thunderstorm watch. Now 13 °C, RH 93%,
+      dew point 12 °C — 1 °C gap, saturated air.
+      (Penticton s0000772 · IPENTI39)
+
+      Naramata: 17°/11°, wind 20G40 km/h S, rain 80%. Now 13 °C, RH 47%, dew point 2 °C.
+      (Summerland, 6 km · IBCNARAM1)
+
+  not `Naramata: 17°/11° ... (Summerland station, 6 km) ...` mid-sentence. The borrowed-station
+  distance still matters and stays — a forecast from 18 km away is worth knowing about — it just
+  belongs on the provenance line, not in the middle of the reading.
 - **Active Restricted Entry Intervals** by property, with the time each clears, and expiries
   worth planning around. "No records" when none.
 - **Work by property** — yesterday's tasks grouped by property and named the way the grower
