@@ -1,5 +1,9 @@
 # What vineyard_mcp itself needs. The compliance kernel is deliberately small.
-mcp>=1.2
+# Pinned below 2.0: mcp 2.x renamed FastMCP to MCPServer and changed the API, so
+# `from mcp.server.fastmcp import FastMCP` in server.py fails outright. Caught by CI on the
+# first push - a fresh install resolved to 2.x and the whole kernel failed to import, which
+# is exactly what a clean install on the production host would have done.
+mcp>=1.2,<2
 pydantic>=2
 pyyaml>=6
 python-dotenv>=1
