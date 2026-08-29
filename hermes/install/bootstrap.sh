@@ -37,7 +37,24 @@ fi
 #    That subcommand does NOT exist in v0.20.4 as installed (verified 2026-08-21) - the working
 #    route is skills.external_dirs in config.yaml, which loads them identically (source: local).
 echo "==> Registering project skills via skills.external_dirs"
-python - "$REPO" "$HERMES_HOME" <<'REGEOF'
+# Resolve an interpreter that actually has PyYAML. Ubuntu ships no bare `python` (only
+# python3), and with `set -e` a bare `python` here aborts the whole bootstrap at step 3 -
+# silently leaving skills unregistered, the heartbeat scripts uninstalled and the agent
+# libraries missing, while steps 1-2 look like they worked. Found on the first real Linux
+# install, 2026-08-28. The repo venv is preferred because requirements.txt guarantees PyYAML.
+PY=""
+for cand in "$REPO/.venv/bin/python" python3 python; do
+  if command -v "$cand" >/dev/null 2>&1 && "$cand" -c "import yaml" >/dev/null 2>&1; then
+    PY="$cand"; break
+  fi
+done
+if [ -z "$PY" ]; then
+  echo "    ! No interpreter with PyYAML found. Build the repo venv first:"
+  echo "        python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
+  exit 1
+fi
+echo "    using interpreter: $PY"
+"$PY" - "$REPO" "$HERMES_HOME" <<'REGEOF'
 import io, sys, os, shutil, yaml
 from datetime import datetime
 repo, hh = sys.argv[1], sys.argv[2]
