@@ -148,9 +148,34 @@ def resolve_product(conn: sqlite3.Connection, text: Any) -> dict[str, Any] | Non
 
 
 def _contact(conn: sqlite3.Connection, wa_phone: str) -> dict[str, Any] | None:
+    """Resolve a sender by phone number OR WhatsApp lid.
+
+    WhatsApp identifies some senders by phone and others by a device-linked `...@lid`, and which
+    one arrives is not the sender's choice. Matching on `wa_phone` alone made every lid-identified
+    sender an `unknown_contact` here, so the intake flow refused reports from people who are
+    plainly enrolled — while `resolve_contact` and `registry.py` accepted them. Same person, two
+    answers, depending on which door they knocked on.
+    """
     return row_to_dict(
-        conn.execute("SELECT * FROM contacts WHERE wa_phone = ?", (wa_phone,)).fetchone()
+        conn.execute(
+            "SELECT * FROM contacts WHERE wa_phone = ? OR wa_lid = ?",
+            (wa_phone, wa_phone),
+        ).fetchone()
     )
+
+
+def _canonical_phone(conn: sqlite3.Connection, identifier: str) -> str:
+    """The one identifier a draft is keyed by, whichever door the sender came through.
+
+    Drafts are bound to the identity that opened them (that binding is what stops a forwarded
+    confirmation card being signed by someone else). If a worker opens a draft from their phone
+    number and the confirmation arrives carrying their lid, a literal string comparison sees two
+    different people and refuses a legitimate confirmation. So every identity that enters the
+    draft system is first collapsed to the contact's canonical `wa_phone`; unknown identifiers
+    pass through unchanged so the caller's own `unknown_contact` check still fires.
+    """
+    contact = _contact(conn, identifier)
+    return contact["wa_phone"] if contact else identifier
 
 
 def _local_to_utc(log_date: str, hhmm: str, tzname: str) -> datetime | None:
@@ -278,6 +303,7 @@ def draft_spray_log(
     contact = _contact(conn, wa_phone)
     if not contact:
         return err("unknown_contact", wa_phone=wa_phone)
+    wa_phone = contact["wa_phone"]
 
     existing = _open_draft(conn, wa_phone, "spray_report")
     draft: dict[str, Any] = json.loads(existing["draft_json"]) if existing else {}
@@ -508,7 +534,7 @@ def _load_committable(
         return None, err("unknown_token")
     if row["intent"] != intent:
         return None, err("wrong_intent", expected=intent, actual=row["intent"])
-    if wa_phone is not None and row["wa_phone"] != wa_phone:
+    if wa_phone is not None and row["wa_phone"] != _canonical_phone(conn, wa_phone):
         return None, err(
             "confirmation_from_wrong_number",
             draft_phone=row["wa_phone"],
@@ -654,6 +680,7 @@ def draft_task_log(
     contact = _contact(conn, wa_phone)
     if not contact:
         return err("unknown_contact", wa_phone=wa_phone)
+    wa_phone = contact["wa_phone"]
 
     existing = _open_draft(conn, wa_phone, "task_report")
     draft: dict[str, Any] = json.loads(existing["draft_json"]) if existing else {}

@@ -37,11 +37,18 @@ the answer comes from this table — one fetch serves everyone.
 
 These are cheap once the forecast is cached, and they are what make the report worth opening:
 
-- **Mildew pressure** (`mildew_risk(hourly)` per site): band LOW/MODERATE/HIGH with interval
-  implication. Quote it as the proxy it is — temperature + rain signals, no leaf-wetness sensor.
-- **Water balance** per block (`compute_et0` from daily min/max at the site latitude, then
-  `water_balance(block, rain_mm, et0_mm)`): report blocks at or past the deficit alert threshold;
-  post-veraison, run `irrigation_vs_ripening` before suggesting water on a block behind Brix.
+- **Mildew pressure** (`mildew_risk(hourly)` per site): score (0–100) and band LOW/MODERATE/HIGH
+  with interval implication. Read the `hourly` list from `weather_cache.payload_json` — it has
+  temperature, sky, and precipitation probability. Quote it as the proxy it is (temperature + rain
+  signals, no leaf-wetness sensors). Never output "not set up" when forecast hours are cached.
+- **Water balance & irrigation suggestion** per block (`compute_et0` from daily min/max at the site
+  latitude, then `water_balance(block, rain_mm, et0_mm)`): do not just report a blank deficit or
+  "not set up". Give a concrete watering suggestion:
+  - Report daily deficit in mm and weekly crop water use (ETc = ET0 × Kc, Kc ~ 0.6).
+  - Provide replacement suggestion in mm, litres/acre (~4,047 L per mm/acre), and practical run-time
+    guidance (e.g. "Suggest 4–6 hr drip cycle every 3–4 days" or pulse watering).
+  - Post-veraison/cluster development check: caution against over-watering that dilutes Brix while
+    recommending adequate water to prevent canopy collapse during cluster sizing.
 - **PHI countdowns**: for each block with an expected harvest date in `block_season`, last safe
   spray date = harvest minus each product's `phi_days`. "Switch must be ON by Aug 30" is gold.
   No harvest dates registered? Say so once and move on.
@@ -182,6 +189,13 @@ If the day is genuinely quiet, say so in one line rather than inventing concern.
 English, dense, decision-first — same register as manager DMs. One message, not sections fired
 separately.
 
+## Data gaps reference
+
+A condensed reference for handling missing/zero fields in the daily report is available at
+`references/report-data-gaps.md`. Keep this section terse — the daily report reads in two minutes.
+
+Refer to it when a field is `0.0`, `NULL`, or absent, and always say the fact once then move on.
+
 **Do not attempt to deliver this report yourself.** A scheduled run is told, by the harness, that
 its final response is delivered automatically and that it must not send anything itself — and that
 instruction outranks anything written here. Compose the report as your final response and stop.
@@ -191,9 +205,18 @@ deliver to one target. Composing the report once per owner would mean two model 
 disagree about what to spray on the same morning, so instead: this job composes once with its
 delivery set to `local`, and one `--no-agent` job per owner prints that same composed text and
 lets cron deliver it verbatim. The emitter is
-`~/.hermes/scripts/emit_grower_report.sh` (source: `scripts/hermes/` in the vineyard repo), and it
-refuses to ship a report older than 45 minutes — a stale spray verdict could send someone into a
-window that has already closed.
+`~/.hermes/scripts/emit_grower_report.sh` (source: `scripts/hermes/` in the vineyard repo).
+
+**Your final message must be the report and nothing else.** The emitter extracts from the first
+emoji section header (`🧪`) onward and refuses anything over 12 KB or missing a weather section —
+so reasoning in the final message does not merely look untidy, it stops the report being sent at
+all. Do your thinking in tool calls; the last thing you emit starts at `🧪 SPRAY` and ends at the
+last report line. No preamble ("Now I have all three sites' data, let me analyze each..."), no
+closing offer of further help, no restating the prompt.
+
+The emitter refuses a report composed on an earlier calendar day. It does not care how long the
+compose took — a 40-minute run is fine — but yesterday's spray verdict never ships, because it
+could send someone into a window that has already closed.
 
 **An owner who does not read English is not on this report.** A report nobody can read is a report
 that did not happen. Baljit reads Gurmukhi (`lang: pa`, `reports_in: pa`, `voice_replies: 1`) and
