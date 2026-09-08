@@ -20,12 +20,14 @@ column**. Report only what is OPEN or opening within ~60 days.
 | Agriculture Water Infrastructure Program | Water supply/storage/distribution projects | gov.bc.ca programs page | Intake-dependent |
 | BC Agri-Business Planning Program | Business/succession planning support | gov.bc.ca programs page | Intake-dependent |
 
-## Secondary sources worth a monthly glance
+## Aggregate hubs — checked every weekly scan (catches new programs not yet in this table)
 
-- **BCWGC funding hub:** bcwgc.org/funding-opportunities/ — the council curates exactly our niche.
-- **BC Grape Growers' Association funding page:** grapegrowers.bc.ca/funding
-- **IAF program board:** bciaf.ca/programs/ — single source of truth for EFP/BMP/ERP/CAF status.
-- **gov.bc.ca agriculture programs:** www2.gov.bc.ca/gov/content/industry/agriculture-seafood/programs
+- **IAF program board:** bciaf.ca/programs/ — single source of truth for EFP/BMP/ERP/CAF status. Any new intake or program listed here goes on the core-stack watchlist.
+- **BCWGC funding hub:** bcwgc.org/funding-opportunities/ — the council curates exactly our niche. Newly listed provincial or federal programs of relevance show up here first.
+- **BC Grape Growers' Association funding page:** grapegrowers.bc.ca/funding — weekly pass.
+- **gov.bc.ca agriculture programs:** www2.gov.bc.ca/gov/content/industry/agriculture-seafood/programs — weekly pass.
+
+If the aggregate page lists a program not in the core stack above, add it to the watchlist with its URL and what it funds, and report it once with the new addition.
 
 ## Water & drought notices — same scan, second half
 

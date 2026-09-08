@@ -180,6 +180,25 @@ The grower reads this in two minutes, once a day, before deciding anything.
   Okanagan drought-level / water-restriction notices (same weekly scan). Only changes, new
   deadlines inside 30 days with days remaining, or prerequisite gaps (no current EFP number).
   No change = one word or omit.
+
+  **For each OPEN program we plausibly qualify for, include a concrete project idea on the
+  next line** — not generic advice. The idea must be grounded in actual operation data:
+  cite the property/block, the qualifying practice, and the rough scale. The grower reads
+  this to decide whether to apply, and a project line that doesn't name a block is a
+  project line that won't get action. Examples of the right level:
+
+      💰 Grants & water notices:
+
+      BMP open to Aug 31 (Extreme Weather stream, 50% cost-share) — B5 Naramata drip retrofit
+      (3.2 ac, ~$8k project, ~$4k share).
+
+      ERP "Coming Soon" Fall 2026 — B12 Hwy 97 (2.1 ac) had 35% cane kill Jan 2026, qualifies
+      for replant stock cost-share. Watch the intake window.
+
+  The second line under a program is a project idea, NOT a restatement of the program. If
+  we have no current EFP and BMP is open, that IS the project: "EFP — none on file, start
+  free assessment now so BMP eligibility exists." Don't manufacture projects for programs
+  we don't qualify for or where we have no qualifying work on the books.
 - **Anything you decided on your own** since the last report, briefly, with why.
 
 If the day is genuinely quiet, say so in one line rather than inventing concern.

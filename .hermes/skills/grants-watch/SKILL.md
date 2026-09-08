@@ -34,6 +34,47 @@ check-time beats anything written in the reference, including its status column.
    means something.
 5. Write back what you saw (`... set state '{"BMP": "open-until-2026-08-31", "drought": "3"}'`).
 
+## What the daily report reads from your notepad
+
+The 04:30 grower report includes a project-idea line under each open program we plausibly
+qualify for. That idea has to be **cached with the program state**, not recomputed each
+morning — recomputing each morning means re-reading blocks and water balance at 04:30,
+which is the wrong shape for a 2-minute report.
+
+So when you write notepad state, do the project-idea work HERE on the Monday scan, while
+you already have the full operational picture:
+
+- For each OPEN program, walk the operation: `get_blocks`, `water_balance` (which blocks
+  have real ET deficit → irrigation-efficiency BMP), fruit samples (any quality angle →
+  CAF nitrogen/cover cropping), task log (any replant, soil work, or improvement task
+  recently logged → ERP, BMP), spray log (food-safety / traceability angle).
+- Match qualifying practice to qualifying program. Don't manufacture fit.
+- Cache the result in the notepad alongside the program status, e.g.:
+
+      {
+        "BMP": {
+          "status": "open-until-2026-08-31",
+          "stream": "Extreme Weather",
+          "cost_share": "50%",
+          "project": {
+            "block": "B5 Naramata",
+            "acres": 3.2,
+            "practice": "drip retrofit",
+            "est_cost_cad": 8000,
+            "est_share_cad": 4000,
+            "qualifies_because": "irrigation efficiency BMP, current deficit 22 mm/week on B5"
+          }
+        },
+        "drought": "3"
+      }
+
+- The daily report renders `{grant_lines}` from this cache. If a program is open but no
+  project idea is cached, render the program line only and say "no qualifying project on
+  the books" rather than fabricate one. Re-scan if you need a fresh project idea.
+
+Cadence is weekly, but project-idea work is heavier than status checks — keep the
+Monday scan honest about that cost.
+
 ## Cadence
 
 Daily scans would be noise — programs move monthly, not daily. **Scan weekly (Mondays) and on
