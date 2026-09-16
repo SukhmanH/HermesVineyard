@@ -42,8 +42,137 @@ def _d(value: Any) -> date | None:
 # Fruit maturity
 # ──────────────────────────────────────────────────────────────────────────────
 
-def maturity_status(conn, block_code: str | None = None, season: int | None = None) -> dict:
+def _ripening_rate(with_brix: list[dict]) -> tuple[float | None, int | None]:
+    """°Bx/day from the two most recent DISTINCT-date samples.
+
+    A same-day re-test is a second opinion on one day, not a second point on the line: taking
+    the newest two blindly made a re-test silently kill the projection, with no note explaining
+    why the days-to-target number vanished (delegation review, reproduced).
+    """
+    if len(with_brix) < 2:
+        return None, None
+    for i, a in enumerate(with_brix):
+        da = _d(a["sampled_on"])
+        for b in with_brix[i + 1 :]:
+            dbb = _d(b["sampled_on"])
+            if da and dbb and da != dbb:
+                span = (da - dbb).days
+                if span > 0:
+                    return round((a["brix"] - b["brix"]) / span, 3), span
+                return None, None  # newest distinct pair is flat/backwards in time
+    return None, None  # every sample shares one date
+
+
+def _assess_block(rows: list[dict], tgt: dict | None, today: date) -> dict:
+    """One fruit-state assessment: the samples are shared, the contract (tgt) is not.
+
+    Returns the maturity_status entry for one block (one row per contract when a block has
+    several buyers, one untargeted entry when it has none).
+    """
+    latest = rows[0]
+    sampled = _d(latest["sampled_on"])
+    age = (today - sampled).days if sampled else None
+
+    with_brix = [r for r in rows if r["brix"] is not None]
+    rate, rate_span = _ripening_rate(with_brix)
+
+    entry = {
+        "block_code": latest["block_code"],
+        "winery": tgt["winery"] if tgt else None,
+        "block_name": latest["block_name"],
+        "variety": latest["variety"],
+        "acres": latest["acres"],
+        "last_sample": latest["sampled_on"],
+        "sample_age_days": age,
+        # Ripening moves fast late in the season; a fortnight-old number is not where the
+        # fruit is now, and harvest calls get made on these.
+        "sample_stale": (age is not None and age > 7),
+        "brix": latest["brix"],
+        "ta_g_l": latest["ta_g_l"],
+        "ph": latest["ph"],
+        "brix_per_day": rate,
+        "rate_span_days": rate_span,
+        "samples_this_season": len(rows),
+        "target": None,
+        "brix_gap": None,
+        "projected_days_to_target": None,
+        "projected_date": None,
+        "in_spec": None,
+        "notes": [],
+    }
+
+    if tgt:
+        entry["target"] = {
+            "winery": tgt["winery"],
+            "brix": [tgt["target_brix_min"], tgt["target_brix_max"]],
+            "ta_g_l": [tgt["target_ta_min"], tgt["target_ta_max"]],
+            "ph": [tgt["target_ph_min"], tgt["target_ph_max"]],
+            "harvest_window": [tgt["harvest_window_from"], tgt["harvest_window_to"]],
+            "contract_notes": tgt["contract_notes"],
+        }
+        lo, hi = tgt["target_brix_min"], tgt["target_brix_max"]
+        if latest["brix"] is not None and lo is not None:
+            gap = round(lo - latest["brix"], 2)
+            entry["brix_gap"] = gap
+            if gap <= 0:
+                entry["projected_days_to_target"] = 0
+                if hi is not None and latest["brix"] > hi:
+                    entry["notes"].append(
+                        f"ABOVE the contract window ({latest['brix']} > {hi}) - "
+                        "overripe fruit cannot be un-ripened"
+                    )
+            elif rate and rate > 0:
+                days = math.ceil(gap / rate)
+                entry["projected_days_to_target"] = days
+                entry["projected_date"] = (today + timedelta(days=days)).isoformat()
+            elif rate is not None and rate <= 0:
+                entry["notes"].append(
+                    "Brix has not risen between the last two samples - no projection possible"
+                )
+
+        entry["in_spec"] = _in_spec(latest, tgt)
+
+        # A harvest window the projection lands outside of is the whole point of tracking it.
+        pd = _d(entry.get("projected_date"))
+        wf, wt = _d(tgt["harvest_window_from"]), _d(tgt["harvest_window_to"])
+        if pd and wt and pd > wt:
+            entry["notes"].append(
+                f"projected ripeness {pd.isoformat()} falls AFTER the contract window "
+                f"closes {wt.isoformat()}"
+            )
+        elif pd and wf and pd < wf:
+            entry["notes"].append(
+                f"projected ripeness {pd.isoformat()} falls BEFORE the window opens "
+                f"{wf.isoformat()}"
+            )
+
+    if len(with_brix) < 2:
+        entry["notes"].append("only one Brix sample - no ripening rate yet")
+    elif rate is None and len({r["sampled_on"] for r in with_brix}) == 1:
+        entry["notes"].append(
+            f"all {len(with_brix)} Brix samples are from one date - no ripening rate yet"
+        )
+    if latest["sample_size"] is not None and latest["sample_size"] < 100:
+        entry["notes"].append(
+            f"sample of {latest['sample_size']} berries is small; Brix varies a lot berry "
+            "to berry"
+        )
+
+    return entry
+
+
+def maturity_status(
+    conn,
+    block_code: str | None = None,
+    season: int | None = None,
+    *,
+    winery: str | None = None,
+) -> dict:
     """Where the fruit is, where the winery wants it, and how fast the gap is closing.
+
+    One assessment per (block, contract): two wineries buying the same block have two targets
+    on one fruit state, and each is owed its own gap and projection — not one arbitrary
+    target silently dropped. `winery=` filters to a single buyer's view.
 
     The useful number is not today's Brix — it is **°Bx per day between the last two samples**,
     which turns "we're at 21.4" into "about nine days out at the current rate". That projection
@@ -74,133 +203,38 @@ def maturity_status(conn, block_code: str | None = None, season: int | None = No
     if block_code:
         tsql += " AND b.code = ?"
         tparams.append(block_code)
-    targets = {t["block_code"]: t for t in rows_to_dicts(conn.execute(tsql, tparams).fetchall())}
+    if winery:
+        tsql += " AND lower(t.winery) = ?"
+        tparams.append(winery.strip().lower())
+    targets = rows_to_dicts(conn.execute(tsql, tparams).fetchall())
 
     by_block: dict[str, list[dict]] = {}
     for s in samples:
         by_block.setdefault(s["block_code"], []).append(s)
 
     out = []
-    for code, rows in by_block.items():
-        latest = rows[0]
-        tgt = targets.get(code)
-        sampled = _d(latest["sampled_on"])
-        age = (today - sampled).days if sampled else None
+    # One entry per (block, target): the fruit state is shared, the contract is not.
+    # (fruit_targets is UNIQUE on block+season+winery, so each row is one buyer's contract.)
+    for t in targets:
+        rows = by_block.get(t["block_code"], [])
+        if rows:
+            out.append(_assess_block(rows, t, today))
 
-        # Ripening rate from the two most recent DISTINCT-date samples with a Brix reading.
-        # A same-day re-test is a second opinion on one day, not a second point on the line:
-        # taking the newest two blindly made a re-test silently kill the projection, with no
-        # note explaining why the days-to-target number vanished.
-        with_brix = [r for r in rows if r["brix"] is not None]
-        rate = None
-        rate_span = None
-        if len(with_brix) >= 2:
-            pair = None
-            for i, a in enumerate(with_brix):
-                da = _d(a["sampled_on"])
-                for b in with_brix[i + 1 :]:
-                    dbb = _d(b["sampled_on"])
-                    if da and dbb and da != dbb:
-                        pair = (a, b, da, dbb)
-                        break
-                if pair:
-                    break
-            if pair:
-                a, b, da, dbb = pair
-                span = (da - dbb).days
-                if span > 0:
-                    rate = round((a["brix"] - b["brix"]) / span, 3)
-                    rate_span = span
-
-        entry = {
-            "block_code": code,
-            "block_name": latest["block_name"],
-            "variety": latest["variety"],
-            "acres": latest["acres"],
-            "last_sample": latest["sampled_on"],
-            "sample_age_days": age,
-            # Ripening moves fast late in the season; a fortnight-old number is not where the
-            # fruit is now, and harvest calls get made on these.
-            "sample_stale": (age is not None and age > 7),
-            "brix": latest["brix"],
-            "ta_g_l": latest["ta_g_l"],
-            "ph": latest["ph"],
-            "brix_per_day": rate,
-            "rate_span_days": rate_span,
-            "samples_this_season": len(rows),
-            "target": None,
-            "brix_gap": None,
-            "projected_days_to_target": None,
-            "projected_date": None,
-            "in_spec": None,
-            "notes": [],
-        }
-
-        if tgt:
-            entry["target"] = {
-                "winery": tgt["winery"],
-                "brix": [tgt["target_brix_min"], tgt["target_brix_max"]],
-                "ta_g_l": [tgt["target_ta_min"], tgt["target_ta_max"]],
-                "ph": [tgt["target_ph_min"], tgt["target_ph_max"]],
-                "harvest_window": [tgt["harvest_window_from"], tgt["harvest_window_to"]],
-                "contract_notes": tgt["contract_notes"],
-            }
-            lo, hi = tgt["target_brix_min"], tgt["target_brix_max"]
-            if latest["brix"] is not None and lo is not None:
-                gap = round(lo - latest["brix"], 2)
-                entry["brix_gap"] = gap
-                if gap <= 0:
-                    entry["projected_days_to_target"] = 0
-                    if hi is not None and latest["brix"] > hi:
-                        entry["notes"].append(
-                            f"ABOVE the contract window ({latest['brix']} > {hi}) - "
-                            "overripe fruit cannot be un-ripened"
-                        )
-                elif rate and rate > 0:
-                    days = math.ceil(gap / rate)
-                    entry["projected_days_to_target"] = days
-                    entry["projected_date"] = (today + timedelta(days=days)).isoformat()
-                elif rate is not None and rate <= 0:
-                    entry["notes"].append(
-                        "Brix has not risen between the last two samples - no projection possible"
-                    )
-
-            entry["in_spec"] = _in_spec(latest, tgt)
-
-            # A harvest window the projection lands outside of is the whole point of tracking it.
-            pd = _d(entry.get("projected_date"))
-            wf, wt = _d(tgt["harvest_window_from"]), _d(tgt["harvest_window_to"])
-            if pd and wt and pd > wt:
-                entry["notes"].append(
-                    f"projected ripeness {pd.isoformat()} falls AFTER the contract window "
-                    f"closes {wt.isoformat()}"
-                )
-            elif pd and wf and pd < wf:
-                entry["notes"].append(
-                    f"projected ripeness {pd.isoformat()} falls BEFORE the window opens "
-                    f"{wf.isoformat()}"
-                )
-
-        if len(with_brix) < 2:
-            entry["notes"].append("only one Brix sample - no ripening rate yet")
-        elif rate is None and len({r["sampled_on"] for r in with_brix}) == 1:
-            entry["notes"].append(
-                f"all {len(with_brix)} Brix samples are from one date - no ripening rate yet"
-            )
-        if latest["sample_size"] is not None and latest["sample_size"] < 100:
-            entry["notes"].append(
-                f"sample of {latest['sample_size']} berries is small; Brix varies a lot berry "
-                "to berry"
-            )
-
-        out.append(entry)
+    # Blocks with samples but no contract still get an untargeted entry - a reading nobody
+    # tracks is how a block quietly goes out of spec for the contract it will sign next year.
+    # (Skipped under a winery filter: that view is one buyer's, by request.)
+    if not winery:
+        for code, rows in by_block.items():
+            if any(e["block_code"] == code and e["target"] for e in out):
+                continue
+            out.append(_assess_block(rows, None, today))
 
     # Blocks with a contract but no samples at all are the ones most likely to be forgotten.
     sampled_blocks = set(by_block)
     unsampled = [
-        {"block_code": c, "winery": t["winery"], "harvest_window":
+        {"block_code": t["block_code"], "winery": t["winery"], "harvest_window":
          [t["harvest_window_from"], t["harvest_window_to"]]}
-        for c, t in targets.items() if c not in sampled_blocks
+        for t in targets if t["block_code"] not in sampled_blocks
     ]
 
     return {

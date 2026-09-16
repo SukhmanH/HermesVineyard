@@ -181,6 +181,38 @@ def test_contracted_blocks_nobody_sampled_are_surfaced(db):
     assert [b["block_code"] for b in out["contracted_but_unsampled"]] == ["B1"]
 
 
+def test_two_contracts_on_one_block_are_assessed_separately(db):
+    """Two wineries, two contracts, one block, one fruit state. Each contract must get its
+    own projection from the same samples - not one arbitrary target silently dropped
+    (delegation review finding 1, reproduced)."""
+    _target(db, lo=23.0, hi=25.0, winery="Quails Gate")
+    _target(db, lo=24.0, hi=26.0, winery="Mission Hill")
+    record_sample(db, "B3", sampled_on=_ago(7), brix=22.0)
+    record_sample(db, "B3", sampled_on=_ago(0), brix=23.0)
+    entries = maturity_status(db, "B3")["blocks"]
+    assert len(entries) == 2
+    by_winery = {e["winery"]: e for e in entries}
+    assert by_winery["Quails Gate"]["brix_gap"] == 0.0
+    assert by_winery["Mission Hill"]["brix_gap"] == 1.0
+    assert by_winery["Mission Hill"]["brix_per_day"] == 0.143  # 1.0 / 7
+
+
+def test_maturity_status_can_filter_to_one_winery(db):
+    _target(db, lo=23.0, winery="Quails Gate")
+    _target(db, lo=24.0, winery="Mission Hill")
+    record_sample(db, "B3", brix=23.0)
+    out = maturity_status(db, "B3", winery="mission hill")
+    assert [e["winery"] for e in out["blocks"]] == ["Mission Hill"]
+
+
+def test_uncontracted_samples_still_get_an_entry(db):
+    """The per-winery split must not lose blocks that have samples but no contract."""
+    record_sample(db, "B3", brix=21.0)
+    out = maturity_status(db, "B3")
+    assert len(out["blocks"]) == 1
+    assert out["blocks"][0]["target"] is None
+
+
 # ── Evapotranspiration ───────────────────────────────────────────────────────
 
 def test_et0_is_plausible_for_a_hot_okanagan_summer_day(db):
