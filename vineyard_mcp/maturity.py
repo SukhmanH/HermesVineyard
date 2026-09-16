@@ -386,6 +386,27 @@ def compute_et0(daily: list[dict[str, Any]], latitude: float) -> dict[str, Any]:
     }
 
 
+def _litres(quantity: Any, unit: Any) -> float | None:
+    """Litres from a logged (quantity, unit), or None when it is not a usable volume."""
+    if quantity is None or isinstance(quantity, bool) or not unit:
+        return None
+    try:
+        q = float(quantity)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(q) or q <= 0:
+        return None
+    u = str(unit).strip().lower().rstrip(".")
+    if u in ("l", "ltr", "litre", "liter", "litres", "liters", "litros"):
+        return q
+    if u in ("kl", "kilolitre", "kiloliter", "kilolitros"):
+        return q * 1000.0 if math.isfinite(q * 1000.0) else None
+    if u in ("m3", "m³", "cubic metre", "cubic meter", "cubic metres", "cubic meters",
+             "metro cubico", "metros cubicos"):
+        return q * 1000.0 if math.isfinite(q * 1000.0) else None
+    return None
+
+
 def water_balance(
     conn,
     block_code: str,
@@ -415,11 +436,17 @@ def water_balance(
     today = _today_local()
     since = (today - timedelta(days=days)).isoformat()
 
-    last = conn.execute(
+    rows = conn.execute(
         """SELECT log_date, hours_total, quantity, quantity_unit FROM task_log_current
-            WHERE block_id = ? AND task_type = 'riego'
+            WHERE block_id = ? AND task_type = 'riego' AND log_date >= ? AND log_date <= ?
+            ORDER BY log_date DESC""",
+        (block["id"], since, today.isoformat()),
+    ).fetchall()
+    last = rows[0] if rows else conn.execute(
+        """SELECT log_date, hours_total, quantity, quantity_unit FROM task_log_current
+            WHERE block_id = ? AND task_type = 'riego' AND log_date <= ?
             ORDER BY log_date DESC LIMIT 1""",
-        (block["id"],),
+        (block["id"], today.isoformat()),
     ).fetchone()
     last_irrigation = last["log_date"] if last else None
     days_since = None
@@ -427,10 +454,35 @@ def water_balance(
         d = _d(last_irrigation)
         days_since = (today - d).days if d else None
 
-    etc = round(et0_mm * kc, 1)
-    deficit = round(etc - rain_mm, 1)
+    # Credit what the crews actually applied inside the window. task_log rows carry a volume
+    # (quantity/quantity_unit) the old code never read: ignoring them told the grower to water
+    # a block they had already watered.
+    volumes = [_litres(r["quantity"], r["quantity_unit"]) for r in rows]
+    litres_logged = sum(v for v in volumes if v is not None)
+    missing_volumes = sum(v is None for v in volumes)
+    irrigation_mm = None
+    acres = block.get("acres") or 0
+    irrigation_notes: list[str] = []
+    if litres_logged > 0:
+        if acres > 0:
+            # 1 mm over an acre = 4046.86 L (same constant as the run-time estimate below).
+            irrigation_mm = round(litres_logged / (acres * 4046.86), 2)
+        else:
+            irrigation_notes.append(
+                f"{litres_logged:,.0f} L logged in the window but block acreage is unknown "
+                "- volume cannot be converted to a depth, deficit not credited"
+            )
+    if missing_volumes:
+        irrigation_notes.append(
+            f"{missing_volumes} irrigation record(s) in the window without a usable volume "
+            "- those applications are not credited"
+        )
 
-    notes = []
+    etc = round(et0_mm * kc, 1)
+    gross = round(etc - rain_mm, 1)
+    deficit = round(gross - (irrigation_mm or 0.0), 1)
+
+    notes: list[str] = list(irrigation_notes)
     runtime_hint = None
     if block.get("emitter_lph") and block.get("emitters_per_vine") and block.get("vines_per_acre"):
         # mm over an acre = litres / 4046.86 m² * 1000 -> 1 mm = 4.047 L/m² = 4046.86 L/acre
@@ -447,7 +499,13 @@ def water_balance(
         )
 
     if deficit <= 0:
-        notes.append("rainfall met or exceeded estimated crop use over the window")
+        if (rain_mm >= etc) and not (irrigation_mm or 0) > 0:
+            notes.append("rainfall met or exceeded estimated crop use over the window")
+        else:
+            notes.append(
+                "rainfall plus logged irrigation met or exceeded estimated crop use over "
+                "the window - no deficit remains"
+            )
 
     return {
         "block_code": block["code"],
@@ -457,6 +515,9 @@ def water_balance(
         "et0_mm": round(et0_mm, 1),
         "kc": kc,
         "crop_use_mm": etc,
+        "gross_deficit_mm": gross,
+        "irrigation_applied_mm": irrigation_mm,
+        "irrigation_litres_logged": litres_logged if litres_logged else 0,
         "deficit_mm": deficit,
         "last_irrigation": last_irrigation,
         "days_since_irrigation": days_since,

@@ -273,6 +273,88 @@ def test_rain_exceeding_crop_use_is_not_a_deficit(db):
     assert any("rainfall met or exceeded" in n for n in out["notes"])
 
 
+def _log_riego(db, juan, **over):
+    from vineyard_mcp.compliance import commit_task_log, draft_task_log, present_confirmation
+
+    payload = {"task_type": "riego", "block_code": "B3", "log_date": _ago(1),
+               "hours_total": 1, **over}
+    out = draft_task_log(db, juan, payload, raw_message="x")
+    assert out["ready_to_confirm"], out
+    present_confirmation(db, out["confirm_token"])
+    result = commit_task_log(db, out["confirm_token"], "si")
+    assert result.get("committed"), result
+    return result
+
+
+def test_logged_irrigation_volume_credits_the_deficit(db, juan):
+    """The crews log what they applied; a deficit that ignores it tells the grower to water
+    twice (delegation review finding 3, reproduced)."""
+    _log_riego(db, juan, quantity=50000, quantity_unit="L")
+    out = water_balance(db, "B3", rain_mm=0, et0_mm=50, kc=0.6)
+    # 50,000 L over 4.5 acres = 50,000 / (4046.86 x 4.5) = 2.75 mm
+    assert out["irrigation_applied_mm"] == 2.75
+    assert out["irrigation_litres_logged"] == 50000
+    assert out["deficit_mm"] == round(30.0 - 2.75, 1)
+
+
+def test_cubic_metres_credit_too(db, juan):
+    _log_riego(db, juan, quantity=50, quantity_unit="m3")
+    out = water_balance(db, "B3", rain_mm=0, et0_mm=50, kc=0.6)
+    assert out["irrigation_applied_mm"] == 2.75
+
+
+def test_irrigation_without_a_volume_is_reported_not_credited(db, juan):
+    """Hours-only riego rows are real work but not a dose; the omission must be visible."""
+    _log_riego(db, juan, hours_total=6)
+    out = water_balance(db, "B3", rain_mm=0, et0_mm=50, kc=0.6)
+    assert out["irrigation_applied_mm"] is None
+    assert out["deficit_mm"] == 30.0
+    assert any("without a usable volume" in n for n in out["notes"])
+    assert out["last_irrigation"] is not None  # recency still tracked
+
+
+def test_irrigation_volume_with_unknown_acreage_is_not_credited(db, juan):
+    """50 kL means a different depth on 4.5 acres than on 9. Without acreage the credit is a
+    guess - and every live block is at 0.0 acres until the registry is fixed."""
+    db.execute("UPDATE blocks SET acres=0 WHERE code='B3'")
+    _log_riego(db, juan, quantity=50000, quantity_unit="L")
+    out = water_balance(db, "B3", rain_mm=0, et0_mm=50, kc=0.6)
+    assert out["irrigation_applied_mm"] is None
+    assert out["deficit_mm"] == 30.0
+    assert any("acreage" in n for n in out["notes"])
+
+
+def test_future_irrigation_is_neither_credited_nor_last_completed(db, juan):
+    _log_riego(db, juan, log_date=_ago(-1), quantity=50000, quantity_unit="L")
+    out = water_balance(db, "B3", rain_mm=0, et0_mm=50, kc=0.6)
+    assert out["irrigation_litres_logged"] == 0
+    assert out["last_irrigation"] is None
+
+
+def test_partial_irrigation_volumes_remain_visible(db, juan):
+    _log_riego(db, juan, quantity=50000, quantity_unit="L")
+    _log_riego(db, juan, hours_total=6)
+    out = water_balance(db, "B3", rain_mm=0, et0_mm=50, kc=0.6)
+    assert out["irrigation_applied_mm"] == 2.75
+    assert any("without a usable volume" in note for note in out["notes"])
+
+
+def test_irrigation_satisfying_deficit_is_not_called_rainfall(db, juan):
+    _log_riego(db, juan, quantity=600000, quantity_unit="L")
+    out = water_balance(db, "B3", rain_mm=0, et0_mm=50, kc=0.6)
+    assert out["deficit_mm"] < 0
+    assert any("rainfall plus logged irrigation" in n for n in out["notes"])
+    assert not any(n.startswith("rainfall met") for n in out["notes"])
+
+
+def test_invalid_irrigation_volume_is_not_usable():
+    from vineyard_mcp.maturity import _litres
+
+    for quantity in (-50, 0, float("inf"), float("nan"), True):
+        assert _litres(quantity, "L") is None
+    assert _litres(1e308, "m3") is None
+
+
 # ── The cross-check ──────────────────────────────────────────────────────────
 
 def test_irrigating_a_block_behind_target_is_flagged_as_a_tension(db):
