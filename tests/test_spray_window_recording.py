@@ -110,3 +110,15 @@ def test_each_site_is_recorded_separately(tool, db):
         tool(site, calm_hours(), source="eccc", age_hours=0.5)
 
     assert [r["site"] for r in _rows(db)] == ["penticton", "naramata", "oliver"]
+
+
+def test_gust_caveat_survives_the_cache(tool, db):
+    """ECCC publishes no gusts, so a YES rests on the wind gate alone. The verdict must say
+    so explicitly (audit #1) — and the cached verdict row is what the daily report reads,
+    so the caveat only exists if it survives cache_weather."""
+    gustless = [dict(h, gust_kmh=None) for h in calm_hours()]
+    out = tool("penticton", gustless, source="eccc", age_hours=0.5)
+
+    assert out["verdict"] == "YES"
+    assert out["gust_data"] == "missing"
+    assert json.loads(_rows(db)[-1]["verdict_json"])["gust_data"] == "missing"

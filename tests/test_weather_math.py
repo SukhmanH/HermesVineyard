@@ -119,6 +119,32 @@ def test_gusts_block_even_when_average_wind_is_fine():
     assert v["reason"] == REASON_GUSTS
 
 
+def test_missing_gusts_do_not_veto_but_are_declared():
+    """ECCC publishes gusts only on some hours (live check 2026-09-16: gusts on the windy
+    afternoon, none on the calm morning), so a null-gust veto would kill the morning windows
+    the whole system exists to find. Missing gusts must not silently read as calm either:
+    the verdict declares coverage, and windows judged on wind alone are flagged."""
+    v = compute_spray_window(calm_day(gust=None), CFG, age_hours=0.1)
+    assert v["verdict"] == "YES"
+    assert v["gust_data"] == "missing"
+    assert v["best_window"]["gusts_checked"] is False
+
+    assert compute_spray_window(calm_day(), CFG, age_hours=0.1)["gust_data"] == "present"
+
+    partial = calm_day()
+    partial[0]["gust_kmh"] = None
+    vp = compute_spray_window(partial, CFG, age_hours=0.1)
+    assert vp["gust_data"] == "partial"
+    assert vp["best_window"]["gusts_checked"] is False
+
+    covered = calm_day()
+    covered[0]["gust_kmh"] = None
+    covered[0]["wind_kmh"] = 40  # this hour cannot be part of any window
+    vc = compute_spray_window(covered, CFG, age_hours=0.1)
+    assert vc["gust_data"] == "partial"
+    assert vc["best_window"]["gusts_checked"] is True
+
+
 def test_rain_probability_blocks():
     v = compute_spray_window(calm_day(rain=80), CFG, age_hours=0.1)
     assert v["verdict"] == "NO"

@@ -100,6 +100,20 @@ def test_audit_log_is_append_only(db):
         db.execute("DELETE FROM audit_log")
 
 
+def test_audit_log_refuses_insert_or_replace(db):
+    row_id = audit(db, actor="hermes", action="original.decision", detail_json="{}")
+    with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+        db.execute(
+            """INSERT OR REPLACE INTO audit_log
+               (id, at_utc, actor, action, detail_json)
+               VALUES (?, '2026-05-14T13:00:00Z', 'hermes', 'tampered', '{}')""",
+            (row_id,),
+        )
+    assert db.execute(
+        "SELECT action FROM audit_log WHERE id = ?", (row_id,)
+    ).fetchone()["action"] == "original.decision"
+
+
 def test_messages_raw_is_append_only(db):
     with transaction(db):
         db.execute(

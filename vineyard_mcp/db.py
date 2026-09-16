@@ -33,6 +33,8 @@ def connect(db_path: Path | str | None = None) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA foreign_keys = ON")
+    # REPLACE performs an implicit DELETE; it must fire the append-only triggers too.
+    conn.execute("PRAGMA recursive_triggers = ON")
     conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 

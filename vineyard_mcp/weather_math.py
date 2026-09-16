@@ -63,6 +63,15 @@ def _num(value: Any) -> float | None:
     return None if f != f else f  # NaN check
 
 
+def _gust_coverage(hours_: list[dict[str, Any]]) -> str:
+    """How much of the daytime data actually carried gust readings."""
+    gusts = [_num(h.get("gust_kmh")) for h in hours_]
+    have = sum(1 for g in gusts if g is not None)
+    if have == 0:
+        return "missing"
+    return "present" if have == len(gusts) else "partial"
+
+
 def _hour_ok(
     hour: dict[str, Any], cfg: SprayWindow, temp_ceiling: float
 ) -> tuple[bool, str | None]:
@@ -78,6 +87,10 @@ def _hour_ok(
         return False, REASON_WIND_CALM
 
     gust = _num(hour.get("gust_kmh"))
+    # A missing gust is NOT treated as calm here, but it does not veto the hour either:
+    # ECCC never publishes gusts, so a null-gust veto would make every verdict NO forever
+    # and the tool would teach the grower to ignore it. Instead compute_spray_window marks
+    # the whole verdict "gust_data: missing" — an audited caveat, not a silent pass.
     if gust is not None and gust > cfg.gust_max_kmh:
         return False, REASON_GUSTS
 
@@ -187,6 +200,12 @@ def compute_spray_window(
         verdict["reason"] = REASON_NO_DATA
         return verdict
 
+    # Say so out loud (audit #1): a YES must not imply the drift gate was checked. ECCC
+    # publishes gusts only on some hours (verified live 2026-09-16: gusts on the windy
+    # afternoon hours, none on the calm morning), so coverage is declared per verdict and
+    # per window: a window with any gust-less hour was judged on wind alone.
+    verdict["gust_data"] = _gust_coverage(day)
+
     # Evaluate each daytime hour, then extend rain checking past the run by rain_free_hours:
     # a spray that gets rained off two hours later was not a usable window.
     by_time = {h["_dt"]: h for h in parsed}
@@ -221,6 +240,8 @@ def compute_spray_window(
                     "max_temp_c": max(
                         (_num(h.get("temp_c")) or -99.0) for h in run
                     ),
+                    # A window containing any gust-less hour was judged on wind alone.
+                    "gusts_checked": all(_num(h.get("gust_kmh")) is not None for h in run),
                 }
             )
 
