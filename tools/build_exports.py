@@ -166,6 +166,70 @@ def build_task(path: str) -> int:
     return ws.max_row - 1
 
 
+def _append_literal(ws, values):
+    """Keep worker-supplied strings as text, never executable Excel formulas."""
+    from openpyxl.cell import WriteOnlyCell
+
+    cells = []
+    for value in values:
+        cell = WriteOnlyCell(ws, value=value)
+        if isinstance(value, str):
+            cell.data_type = "s"
+        cells.append(cell)
+    ws.append(cells)
+
+
+def build_compliance_month(path: str, year: int, month: int) -> int:
+    """Export all raw monthly spray records and their immediate correction links."""
+    import openpyxl
+
+    local = ZoneInfo("America/Vancouver")
+    start = datetime(year, month, 1, tzinfo=local)
+    end = datetime(year + (month == 12), 1 if month == 12 else month + 1, 1, tzinfo=local)
+    utc = ZoneInfo("UTC")
+    lo, hi = (d.astimezone(utc).strftime("%Y-%m-%dT%H:%M:%SZ") for d in (start, end))
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    assert ws is not None
+    ws.title = "spray_log"
+    with closing(conn_ro()) as c:
+        c.execute("BEGIN")  # both sheets reflect one consistent read-only snapshot
+        cur = c.execute(
+            """SELECT s.*, b.code AS block_code, b.name AS block_name,
+                      (SELECT GROUP_CONCAT(id, ',') FROM
+                        (SELECT c.id FROM spray_log c
+                         WHERE c.corrects_log_id=s.id ORDER BY c.id)) AS "SUPERSEDED-BY"
+               FROM spray_log s LEFT JOIN blocks b ON b.id=s.block_id
+               WHERE s.log_date >= ? AND s.log_date < ? ORDER BY s.log_date, s.id""",
+            (start.date().isoformat(), end.date().isoformat()),
+        )
+        _append_literal(ws, [d[0] for d in cur.description])
+        count = 0
+        for row in cur:
+            _append_literal(ws, row)
+            count += 1
+        audit = wb.create_sheet("audit_log")
+        cur = c.execute("SELECT * FROM audit_log WHERE at_utc >= ? AND at_utc < ? "
+                        "ORDER BY at_utc, id", (lo, hi))
+        _append_literal(audit, [d[0] for d in cur.description])
+        for row in cur:
+            _append_literal(audit, row)
+    for sheet in (ws, audit):
+        _style_header(sheet)
+        _widths(sheet, sheet.max_column)
+        sheet.auto_filter.ref = sheet.dimensions
+    meta = wb.create_sheet("metadata")
+    for row in [("period", start.strftime("%Y-%m")), ("timezone", "America/Vancouver"),
+                ("spray_records", count), ("audit_records", audit.max_row - 1),
+                ("status", "records exported" if count else "no spray records"),
+                ("correction_links", "Immediate correction IDs, including outside this month"),
+                ("generated_at_utc", datetime.now(utc).isoformat())]:
+        _append_literal(meta, row)
+    wb.save(path)
+    wb.close()
+    return count
+
+
 # --------------------------------------------------------------------------- #
 # SQLite online backup
 # --------------------------------------------------------------------------- #
@@ -283,5 +347,31 @@ def main() -> int:
     return 0
 
 
+def cli() -> int:
+    import argparse
+    import re
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--compliance-month", metavar="YYYY-MM",
+                        help="Export a historical calendar month; no backups or rotation")
+    args = parser.parse_args()
+    if args.compliance_month is None:
+        return main()
+    if not re.fullmatch(r"[0-9]{4}-[0-9]{2}", args.compliance_month):
+        parser.error("month must be YYYY-MM")
+    year, month = map(int, args.compliance_month.split("-"))
+    try:
+        datetime(year, month, 1)
+        # The builder needs the exclusive next-month boundary too.
+        datetime(year + (month == 12), 1 if month == 12 else month + 1, 1)
+    except ValueError:
+        parser.error("invalid calendar month")
+    os.makedirs(EXPORT_DIR, exist_ok=True)
+    path = os.path.join(EXPORT_DIR, f"compliance-{args.compliance_month}.xlsx")
+    count = build_compliance_month(path, year, month)
+    log(f"{path}: {count} spray records (includes superseded records)")
+    return 0
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(cli())
