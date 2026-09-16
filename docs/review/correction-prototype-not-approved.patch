@@ -1,0 +1,130 @@
+diff --git a/vineyard_mcp/compliance.py b/vineyard_mcp/compliance.py
+index 949441d..e5da80f 100644
+--- a/vineyard_mcp/compliance.py
++++ b/vineyard_mcp/compliance.py
+@@ -657,6 +657,14 @@ def commit_spray_log(
+             )
+ 
+     with transaction(conn):
++        if row["corrects_log_id"] is not None:
++            superseded = conn.execute(
++                "SELECT id FROM spray_log WHERE corrects_log_id=?",
++                (row["corrects_log_id"],),
++            ).fetchone()
++            if superseded:
++                return err("already_superseded", log_id=row["corrects_log_id"],
++                           superseded_by=superseded["id"])
+         cur = conn.execute(
+             """INSERT INTO spray_log (
+                    log_date, start_time, end_time, block_id, acres_treated,
+@@ -813,8 +821,24 @@ def commit_task_log(
+     assert row is not None
+ 
+     d = json.loads(row["draft_json"])
++    if d.get("hours_total") is not None:
++        try:
++            if float(d["hours_total"]) <= 0:
++                return err("missing_fields", missing_fields=[{"field": "hours_total",
++                                                              "why": "must_be_positive"}])
++        except (TypeError, ValueError):
++            return err("missing_fields", missing_fields=[{"field": "hours_total",
++                                                          "why": "not_a_number"}])
+ 
+     with transaction(conn):
++        if row["corrects_log_id"] is not None:
++            superseded = conn.execute(
++                "SELECT id FROM task_log WHERE corrects_log_id=?",
++                (row["corrects_log_id"],),
++            ).fetchone()
++            if superseded:
++                return err("already_superseded", log_id=row["corrects_log_id"],
++                           superseded_by=superseded["id"])
+         cur = conn.execute(
+             """INSERT INTO task_log (
+                    log_date, task_type, block_id, hours_total, quantity, quantity_unit,
+@@ -904,6 +928,16 @@ def draft_correction(
+     if table not in ("spray_log", "task_log"):
+         return err("bad_table", table=table)
+ 
++    editable = {
++        "log_date", "start_time", "end_time", "block_code", "notes", "wa_phone",
++        "product_name_raw", "rate_value", "rate_units", "total_amount", "total_units",
++        "target_pest", "method", "acres_treated", "label_rei", "rate_confirmed",
++        "wind_kmh", "wind_dir", "temp_c", "rh_pct", "sky", "weather_source",
++        "task_type", "hours_total", "quantity", "quantity_unit", "workers",
++    }
++    forbidden = sorted(set(changes or {}) - editable)
++    if forbidden:
++        return err("bad_correction_fields", fields=forbidden)
+     original = row_to_dict(
+         conn.execute(f"SELECT * FROM {table} WHERE id = ?", (log_id,)).fetchone()
+     )
+@@ -929,12 +963,46 @@ def draft_correction(
+ 
+     draft = {k: v for k, v in original.items() if k not in ("id", "created_at_utc", "created_by")}
+     draft["corrects_log_id"] = log_id
++    if table == "task_log":
++        draft["workers"] = [r["contact_id"] for r in conn.execute(
++            "SELECT contact_id FROM task_workers WHERE task_log_id=? ORDER BY contact_id",
++            (log_id,),
++        )]
+     for key, value in (changes or {}).items():
+         draft[key] = value
+ 
+     if table == "spray_log":
++        if "product_name_raw" in changes:
++            # A different product must never inherit the old label snapshot.
++            for field in ("product_id", "pcp_number", "rei_hours", "phi_days",
++                          "rei_expires_at_utc", "label_rei", "_product_unverified"):
++                draft.pop(field, None)
++            product = resolve_product(conn, draft.get("product_name_raw"))
++            draft["product_id"] = product["id"] if product else None
++            if product and product["verified"]:
++                for field in ("pcp_number", "rei_hours", "phi_days"):
++                    draft[field] = product[field]
++            elif changes.get("label_rei") is not None:
++                draft["label_rei"] = changes["label_rei"]
++                draft["rei_hours"] = changes["label_rei"]
++            else:
++                draft["_product_unverified"] = True
++            _check_rate_against_label(draft, product)
++        if "product_name_raw" not in changes and {"rate_value", "rate_units"} & changes.keys():
++            product = row_to_dict(conn.execute(
++                "SELECT * FROM products WHERE id=?", (draft.get("product_id"),)
++            ).fetchone())
++            _check_rate_against_label(draft, product)
++        if "label_rei" in changes and "product_name_raw" not in changes:
++            draft["rei_hours"] = changes["label_rei"]
++
++    if "block_code" in changes:
++        block = resolve_block(conn, changes["block_code"])
++        draft["block_id"] = block["id"] if block else None
++        draft["block_code"] = block["code"] if block else changes["block_code"]
++    else:
+         block = conn.execute(
+-            "SELECT code FROM blocks WHERE id = ?", (draft.get("block_id"),)
++            "SELECT code FROM blocks WHERE id=?", (draft.get("block_id"),)
+         ).fetchone()
+         if block:
+             draft["block_code"] = block["code"]
+@@ -943,7 +1011,19 @@ def draft_correction(
+         draft["raw_message"] = f"{original.get('raw_message', '')}\n[CORRECCION] {raw_message}".strip()
+ 
+     intent = "spray_report" if table == "spray_log" else "task_report"
+-    missing = _validate_spray(draft) if table == "spray_log" else []
++    if table == "spray_log":
++        missing = _validate_spray(draft)
++    else:
++        missing = []
++        # Task corrections share ordinary intake validation: hours are positive numbers.
++        if draft.get("hours_total") is None:
++            missing.append({"field": "hours_total", "why": "required"})
++        else:
++            try:
++                if float(draft["hours_total"]) <= 0:
++                    missing.append({"field": "hours_total", "why": "must_be_positive"})
++            except (TypeError, ValueError):
++                missing.append({"field": "hours_total", "why": "not_a_number"})
+     state = "ready" if not missing else "collecting"
+     token = _token()
+     now = utcnow()
