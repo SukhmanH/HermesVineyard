@@ -128,6 +128,17 @@ def test_options_exclude_products_not_registered_for_the_pest(db):
     assert "Kumulus DF" not in names
 
 
+def test_a_product_with_no_pest_registration_is_blocked_not_offered(db):
+    """A NULL/empty target_pests is an unknown, not a match-all. The live shed currently has
+    registrations for all 43 products, but the day an unregistered product lands in the shed
+    this must surface as a blocker - not silently pass as usable for every pest (audit #11)."""
+    db.execute("UPDATE products SET target_pests=NULL WHERE trade_name='Kumulus DF'")
+    opts = {o["trade_name"]: o for o in spray_options(db, "B3", "powdery mildew")["options"]}
+    k = opts["Kumulus DF"]
+    assert k["usable"] is False
+    assert any("no pest registration on file" in b for b in k["blockers"])
+
+
 def test_unverified_products_are_shown_but_unusable(db):
     """Visible so a manager sees what verifying would unlock; refused so obligation 4 holds."""
     db.execute("UPDATE products SET verified=0, target_pests='powdery mildew' "

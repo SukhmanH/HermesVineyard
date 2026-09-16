@@ -391,6 +391,10 @@ def spray_options(
             continue
 
         blockers = []
+        if pest and not targets:
+            # An empty registration is an unknown, not a match-all (audit #11): a product
+            # with no pest registration on file must not read as usable for everything.
+            blockers.append("no pest registration on file - cannot confirm it covers this pest")
         if not p["verified"]:
             blockers.append("unverified - no REI may be stated (obligation 4)")
         if not p["default_rate"]:
