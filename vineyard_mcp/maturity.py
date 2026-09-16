@@ -87,14 +87,26 @@ def maturity_status(conn, block_code: str | None = None, season: int | None = No
         sampled = _d(latest["sampled_on"])
         age = (today - sampled).days if sampled else None
 
-        # Ripening rate from the two most recent samples with a Brix reading.
+        # Ripening rate from the two most recent DISTINCT-date samples with a Brix reading.
+        # A same-day re-test is a second opinion on one day, not a second point on the line:
+        # taking the newest two blindly made a re-test silently kill the projection, with no
+        # note explaining why the days-to-target number vanished.
         with_brix = [r for r in rows if r["brix"] is not None]
         rate = None
         rate_span = None
         if len(with_brix) >= 2:
-            a, b = with_brix[0], with_brix[1]
-            da, dbb = _d(a["sampled_on"]), _d(b["sampled_on"])
-            if da and dbb and da != dbb:
+            pair = None
+            for i, a in enumerate(with_brix):
+                da = _d(a["sampled_on"])
+                for b in with_brix[i + 1 :]:
+                    dbb = _d(b["sampled_on"])
+                    if da and dbb and da != dbb:
+                        pair = (a, b, da, dbb)
+                        break
+                if pair:
+                    break
+            if pair:
+                a, b, da, dbb = pair
                 span = (da - dbb).days
                 if span > 0:
                     rate = round((a["brix"] - b["brix"]) / span, 3)
@@ -171,6 +183,10 @@ def maturity_status(conn, block_code: str | None = None, season: int | None = No
 
         if len(with_brix) < 2:
             entry["notes"].append("only one Brix sample - no ripening rate yet")
+        elif rate is None and len({r["sampled_on"] for r in with_brix}) == 1:
+            entry["notes"].append(
+                f"all {len(with_brix)} Brix samples are from one date - no ripening rate yet"
+            )
         if latest["sample_size"] is not None and latest["sample_size"] < 100:
             entry["notes"].append(
                 f"sample of {latest['sample_size']} berries is small; Brix varies a lot berry "

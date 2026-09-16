@@ -104,6 +104,30 @@ def test_flat_or_falling_brix_produces_no_projection(db):
     assert any("not risen" in n for n in entry["notes"])
 
 
+def test_same_day_retest_does_not_kill_the_projection(db):
+    """A same-day re-test is a second opinion on one day, not a second point on the line.
+    The rate must come from the two most recent DISTINCT-date samples instead of going
+    silently null — the grower's days-to-target vanished without a note when a re-test
+    was logged (delegation review, reproduced)."""
+    _target(db, lo=23.0)
+    record_sample(db, "B3", sampled_on=_ago(7), brix=20.0)
+    record_sample(db, "B3", sampled_on=_ago(0), brix=21.4)
+    record_sample(db, "B3", sampled_on=_ago(0), brix=21.4)   # same-day re-test
+    entry = maturity_status(db, "B3")["blocks"][0]
+    assert entry["brix_per_day"] == 0.2
+    assert entry["projected_days_to_target"] == 8
+
+
+def test_all_samples_on_one_date_says_why_there_is_no_rate(db):
+    """The rate going null must never be silent."""
+    _target(db)
+    record_sample(db, "B3", sampled_on=_ago(0), brix=21.0)
+    record_sample(db, "B3", sampled_on=_ago(0), brix=21.4)
+    entry = maturity_status(db, "B3")["blocks"][0]
+    assert entry["brix_per_day"] is None
+    assert any("one date" in n for n in entry["notes"])
+
+
 def test_stale_samples_are_flagged(db):
     """Ripening moves fast late season, and harvest calls get made on these numbers."""
     _target(db)
