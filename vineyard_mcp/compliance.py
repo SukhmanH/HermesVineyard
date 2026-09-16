@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import math
 import re
 import secrets
 import sqlite3
@@ -303,6 +304,21 @@ def _validate_spray(draft: dict[str, Any]) -> list[dict[str, Any]]:
                     missing.append({"field": numeric, "why": "must_be_positive"})
             except (TypeError, ValueError):
                 missing.append({"field": numeric, "why": "not_a_number"})
+
+    # A re-entry interval is hours after the spray ends: negative would schedule re-entry
+    # before the spray happened, non-finite would poison every downstream countdown.
+    # Zero is real (some low-risk uses). Do not silently truncate fractions either.
+    for rei_field in ("label_rei", "rei_hours"):
+        val = draft.get(rei_field)
+        if val is None:
+            continue
+        try:
+            rei_f = float(val)
+        except (TypeError, ValueError):
+            missing.append({"field": rei_field, "why": "not_a_number"})
+            continue
+        if not math.isfinite(rei_f) or rei_f < 0:
+            missing.append({"field": rei_field, "why": "must_be_zero_or_positive_hours"})
 
     # A non-canonical date/time is a silent data-corruption risk: '2026-2-3' or '24:00'
     # would parse somewhere downstream and write a record an auditor cannot read back.
@@ -616,6 +632,17 @@ def commit_spray_log(
 
     settings = get_settings()
     d = json.loads(row["draft_json"])
+
+    # Re-validate what is actually about to be written, not the stored verdict. The drafts
+    # row is mutable outside this flow; a draft edited (stale, buggy, tampered) after it
+    # went ready must fail here exactly as it would have at draft time.
+    residual = _validate_spray(d)
+    if residual:
+        return err(
+            "missing_fields",
+            missing_fields=residual,
+            hint="the draft changed after confirmation was requested; re-collect and re-confirm",
+        )
 
     rei_expires = None
     rei_hours = d.get("rei_hours")
