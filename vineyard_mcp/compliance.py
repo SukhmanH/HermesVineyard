@@ -21,7 +21,7 @@ import json
 import re
 import secrets
 import sqlite3
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -229,6 +229,30 @@ def expire_drafts(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     return stale
 
 
+def _canonical_date(value: Any) -> bool:
+    """True only for a real calendar date in strict YYYY-MM-DD form.
+
+    '2026-02-30' parses in some validators and '2026-2-3' parses in most; neither is what a
+    spray record is allowed to say. BC's record must survive an audit three years out, so
+    anything non-canonical is treated as missing, not as a date.
+    """
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return False
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _canonical_time(value: Any) -> bool:
+    """True only for strict zero-padded HH:MM on a real 24-hour clock."""
+    if not isinstance(value, str) or not re.fullmatch(r"\d{2}:\d{2}", str(value)):
+        return False
+    hh, mm = (int(part) for part in value.split(":"))
+    return 0 <= hh < 24 and 0 <= mm < 60
+
+
 def _validate_spray(draft: dict[str, Any]) -> list[dict[str, Any]]:
     """Server-side validation (obligation 2). Returns structured missing/invalid fields."""
     missing: list[dict[str, Any]] = []
@@ -280,9 +304,15 @@ def _validate_spray(draft: dict[str, Any]) -> list[dict[str, Any]]:
             except (TypeError, ValueError):
                 missing.append({"field": numeric, "why": "not_a_number"})
 
+    # A non-canonical date/time is a silent data-corruption risk: '2026-2-3' or '24:00'
+    # would parse somewhere downstream and write a record an auditor cannot read back.
+    # Treat them exactly like a missing field: ask the worker, commit nothing.
+    val = draft.get("log_date")
+    if val is not None and not _canonical_date(val):
+        missing.append({"field": "log_date", "why": "bad_format_expect_YYYY-MM-DD"})
     for tf in ("start_time", "end_time"):
         val = draft.get(tf)
-        if val and not re.fullmatch(r"\d{2}:\d{2}", str(val)):
+        if val is not None and not _canonical_time(val):
             missing.append({"field": tf, "why": "bad_format_expect_HH:MM"})
 
     return missing
