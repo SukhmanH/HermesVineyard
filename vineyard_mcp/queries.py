@@ -141,8 +141,19 @@ def season_gdd(
 
 
 def rei_active(conn: sqlite3.Connection) -> dict[str, Any]:
-    """Blocks currently under a re-entry interval. Drives every NO-ENTRY message."""
-    return {"active": rows_to_dicts(conn.execute("SELECT * FROM rei_active").fetchall())}
+    """Known active and unresolved restrictions; missing expiry never grants entry."""
+    rows = rows_to_dicts(conn.execute(
+        """SELECT s.id, s.block_id, b.code AS block_code, b.name AS block_name, b.site,
+                  s.product_name_raw, s.rei_expires_at_utc,
+                  CASE WHEN s.rei_expires_at_utc IS NULL THEN 'unknown'
+                       ELSE 'active' END AS status
+           FROM spray_log_current s JOIN blocks b ON b.id=s.block_id
+           WHERE s.rei_expires_at_utc IS NULL OR s.rei_expires_at_utc > ?
+           ORDER BY s.rei_expires_at_utc, s.id""", (utcnow(),)
+    ).fetchall())
+    for row in rows:
+        row["entry_allowed"] = False
+    return {"active": rows}
 
 
 def query_logs(
@@ -323,9 +334,7 @@ def get_situation(conn: sqlite3.Connection, scope: str = "full") -> dict[str, An
         "scope": scope,
     }
 
-    situation["rei_active"] = rows_to_dicts(
-        conn.execute("SELECT * FROM rei_active ORDER BY rei_expires_at_utc").fetchall()
-    )
+    situation["rei_active"] = rei_active(conn)["active"]
 
     situation["today_sprays"] = rows_to_dicts(
         conn.execute(

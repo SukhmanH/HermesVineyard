@@ -184,6 +184,33 @@ def test_situation_carries_active_reis(db, juan):
     assert rei_active(db)["active"][0]["block_code"] == "B3"
 
 
+def _legacy_restriction(db, *, hours=None, expiry=None, corrects=None):
+    return db.execute(
+        "INSERT INTO spray_log (log_date,start_time,block_id,product_name_raw,"
+        "raw_message,acres_treated,applicator_contact_id,applicator_name,"
+        "rei_hours,rei_expires_at_utc,corrects_log_id) "
+        "VALUES ('2026-09-01','06:00',(SELECT id FROM blocks WHERE code='B1'),"
+        "'Legacy Sulfur','legacy row',1,(SELECT id FROM contacts LIMIT 1),"
+        "'Worker',?,?,?)", (hours, expiry, corrects),
+    ).lastrowid
+
+
+def test_missing_rei_details_remain_visible_in_both_safety_reads(db):
+    ids = {_legacy_restriction(db, hours=4), _legacy_restriction(db)}
+    active = rei_active(db)["active"]
+    assert {r["id"] for r in active} == ids
+    assert all(r["status"] == "unknown" and r["entry_allowed"] is False for r in active)
+    assert all(r["rei_expires_at_utc"] is None for r in active)
+    assert get_situation(db)["rei_active"] == active
+
+
+def test_expired_and_superseded_unknown_restrictions_are_excluded(db):
+    old = _legacy_restriction(db)
+    _legacy_restriction(db, hours=0, expiry="2000-01-01T00:00:00Z", corrects=old)
+    assert rei_active(db)["active"] == []
+    assert get_situation(db)["rei_active"] == []
+
+
 def test_situation_reports_recent_decisions(db):
     log_decision(db, action="held a nudge", observed="Miguel is off Fridays",
                  reasoning="a manager told me last week")
