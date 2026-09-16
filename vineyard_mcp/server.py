@@ -471,7 +471,9 @@ def record_sample(
 
 
 @mcp.tool()
-def maturity_status(block_code: str | None = None, season: int | None = None) -> dict[str, Any]:
+def maturity_status(
+    block_code: str | None = None, season: int | None = None, winery: str | None = None,
+) -> dict[str, Any]:
     """Fruit vs winery target: current Brix/TA/pH, ripening rate, projected days to target.
 
     The number worth quoting is **degrees Brix per day**, not today's Brix — it turns "we're at
@@ -481,7 +483,7 @@ def maturity_status(block_code: str | None = None, season: int | None = None) ->
     Also flags fruit above the contract window (which cannot be undone), projections falling
     outside the contract harvest dates, and contracted blocks nobody has sampled.
     """
-    return M.maturity_status(db(), block_code, season)
+    return M.maturity_status(db(), block_code, season, winery=winery)
 
 
 @mcp.tool()

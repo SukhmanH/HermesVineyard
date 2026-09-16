@@ -123,8 +123,9 @@ def _assess_block(rows: list[dict], tgt: dict | None, today: date) -> dict:
                     )
             elif rate and rate > 0:
                 days = math.ceil(gap / rate)
-                entry["projected_days_to_target"] = days
-                entry["projected_date"] = (today + timedelta(days=days)).isoformat()
+                projected = (sampled or today) + timedelta(days=days)
+                entry["projected_days_to_target"] = max(0, (projected - today).days)
+                entry["projected_date"] = projected.isoformat()
             elif rate is not None and rate <= 0:
                 entry["notes"].append(
                     "Brix has not risen between the last two samples - no projection possible"
@@ -187,11 +188,12 @@ def maturity_status(
           FROM fruit_samples_current f
           JOIN blocks b ON b.id = f.block_id
     """
-    params: list[Any] = []
+    sql += " WHERE f.sampled_on >= ? AND f.sampled_on < ?"
+    params: list[Any] = [f"{season:04d}-01-01", f"{season + 1:04d}-01-01"]
     if block_code:
-        sql += " WHERE b.code = ?"
+        sql += " AND b.code = ?"
         params.append(block_code)
-    sql += " ORDER BY b.code, f.sampled_on DESC"
+    sql += " ORDER BY b.code, f.sampled_on DESC, f.id DESC"
     samples = rows_to_dicts(conn.execute(sql, params).fetchall())
 
     tsql = """
@@ -545,10 +547,19 @@ def irrigation_vs_ripening(conn, block_code: str, balance: dict, maturity: dict)
     if balance.get("error"):
         return balance
 
-    entry = next(
-        (b for b in maturity.get("blocks", []) if b["block_code"] == balance["block_code"]),
-        None,
-    )
+    entries = [b for b in maturity.get("blocks", [])
+               if b["block_code"] == balance["block_code"]]
+    if len(entries) > 1:
+        contracts = [irrigation_vs_ripening(conn, block_code, balance, {"blocks": [entry]})
+                     for entry in entries]
+        # Preserve every buyer's assessment. The top-level summary must never hide the
+        # near-term tension behind a more distant contract with a larger sugar gap.
+        priority = {"irrigating_may_delay_contract_ripeness": 0,
+                    "deficit_without_ripening_context": 1,
+                    "target_met_water_freely": 2}
+        selected = min(contracts, key=lambda c: priority.get(c["tension"], 3))
+        return {**selected, "contracts": contracts}
+    entry = entries[0] if entries else None
     deficit = balance.get("deficit_mm") or 0.0
     settings = get_settings()
     threshold = settings.irrigation.deficit_alert_mm
@@ -559,6 +570,7 @@ def irrigation_vs_ripening(conn, block_code: str, balance: dict, maturity: dict)
         "deficit_mm": deficit,
         "deficit_significant": significant,
         "days_since_irrigation": balance.get("days_since_irrigation"),
+        "winery": entry.get("winery") if entry else None,
         "brix": entry.get("brix") if entry else None,
         "brix_gap": entry.get("brix_gap") if entry else None,
         "projected_days_to_target": entry.get("projected_days_to_target") if entry else None,
@@ -594,10 +606,16 @@ def irrigation_vs_ripening(conn, block_code: str, balance: dict, maturity: dict)
         )
     elif significant:
         out["tension"] = "deficit_without_ripening_context"
-        out["considerations"].append(
-            f"{deficit:g} mm deficit, and no contract target on file for this block - purely a "
-            "vine-health call."
-        )
+        if entry.get("target"):
+            out["considerations"].append(
+                f"{deficit:g} mm deficit; a contract exists but ripeness is distant or "
+                "cannot be projected. Check sample freshness and vine stress before deciding."
+            )
+        else:
+            out["considerations"].append(
+                f"{deficit:g} mm deficit, and no contract target on file for this block - "
+                "a vine-health assessment is needed."
+            )
     else:
         out["considerations"].append(
             f"deficit of {deficit:g} mm is below the {threshold:g} mm threshold - not worth "
