@@ -25,6 +25,9 @@
 # New gust warning requires Punjabi-speaker review before deployment.
 spray_missing_gusts: "ਸਪਰੇਅ ਨਾ ਕਰੋ। ਹਵਾ ਦੇ ਝੋਕੇ ਕਿੰਨੇ ਤੇਜ਼ ਹਨ, ਇਸ ਦੀ ਪੂਰੀ ਜਾਣਕਾਰੀ ਨਹੀਂ ਹੈ। ਪਹਿਲਾਂ ਝੋਕਿਆਂ ਦੀ ਹੁਣ ਦੀ ਰਫ਼ਤਾਰ ਪਤਾ ਕਰੋ, ਫਿਰ ਮੁੜ ਜਾਂਚ ਕਰਾਂਗੇ। ਜਾਣਕਾਰੀ ਨਾ ਹੋਣ ਦਾ ਮਤਲਬ ਹਵਾ ਸ਼ਾਂਤ ਹੋਣਾ ਨਹੀਂ ਹੈ।"
 
+task_hours_ask: "ਹਰ ਬੰਦੇ ਨੇ ਕਿੰਨੇ ਘੰਟੇ ਕੰਮ ਕੀਤਾ?"
+task_hours_confirm: "ਹਰ ਬੰਦੇ ਦੇ ਘੰਟੇ: {worker_hours}। ਸਾਰਿਆਂ ਦੇ ਕੁੱਲ ਘੰਟੇ: {hours_total}। ਕੀ ਹਰ ਬੰਦੇ ਦੇ ਘੰਟੇ ਸਹੀ ਹਨ?"
+
 meta:
   lang: pa
   script: gurmukhi

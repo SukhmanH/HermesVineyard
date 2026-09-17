@@ -8,7 +8,17 @@ Integrated on master in `/home/waris/hermes-vineyard`:
 
 Parent verification on the main worktree after integration: ` .venv/bin/python -m pytest -q` returned **365 passed in 5.90s**; `.venv/bin/python -m ruff check .` returned **All checks passed!**; `git diff --check` was clean. Parent inspected the code diff; this is not an independent compliance certification. Owner's existing uncommitted changes remain outside these commits.
 
-Remaining: explicit per-worker hours capture and payroll export are NOT implemented. The unfinished test was removed from the repository and is only a scratch artifact. Punjabi warning needs human review. No production migration, service restart, push, messaging, or operational deployment was performed. Missing gust forecasts now yield NO unless a sufficiently long covered run exists; this can prevent ECCC-only approval where gusts are absent.
+Individual-hours follow-up is now implemented: optional `worker_hours` records each listed participant's explicit hours, validates finite positive values up to 24 and a sum matching crew-hours, preserves them through corrections, and stores them under the existing reporter-confirmation gate. Schema migration 7 adds nullable hours and append-only membership triggers; legacy values remain NULL, never divided from crew totals. The registered MCP tool now documents the field and per-person confirmation requirement. English/Spanish/Punjabi supplemental confirmation templates are included.
+
+Read-only export command (explicit inclusive period, not a guessed Payworks period):
+
+    .venv/bin/python tools/build_exports.py --hours-from 2026-09-01 --hours-to 2026-09-07
+
+Output: configured EXPORT_DIR/hours-2026-09-01-to-2026-09-07.xlsx. Sheets contain individual worker/task entries, worker totals, and metadata. Missing individual hours are blank and flagged; superseded tasks are excluded. Legacy schemas without the hours column are supported read-only. No backup or rotation runs. Literal strings remain text, never spreadsheet formulas. This is a manager-review worksheet, not a Payworks import, wage calculation, or individual worker signature. Missing attendance on days without logs cannot be inferred without an attendance schedule.
+
+Final follow-up verification in main worktree: **390 passed in 6.82s**, **ruff check .: All checks passed!**, **git diff --check: clean**. Includes registered FastMCP calls for draft/present/commit, actual subprocess CLI workbook generation and readback, invalid input and correction tests, append-only checks, migration on a temporary database, and legacy export behavior.
+
+Remaining operational work: Punjabi warning and hours wording need human review; external task-log/exports skills need curator adoption of the new procedure. No production migration, service restart, push, messaging, or operational deployment was performed. Missing gust forecasts now yield NO unless a sufficiently long covered run exists; this can prevent ECCC-only approval where gusts are absent.
 
 The sections below preserve earlier implementation evidence and historical defects; where they describe the old gust policy, unresolved SQL view, or lint issue, this current integration status supersedes them.
 

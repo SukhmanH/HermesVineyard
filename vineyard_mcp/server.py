@@ -172,6 +172,11 @@ def draft_task_log(
     Fields: task_type (poda|deshoje|desbrote|riego|corte_pasto|alambre|cosecha|otro),
     block_code, log_date, hours_total (CREW-hours: 3 people x 4 h = 12), quantity,
     quantity_unit, start_time, end_time, notes, workers (list of contact ids).
+    Optional worker_hours: [{"contact_id": 1, "hours": 3}, ...], explicitly reported
+    for EVERY listed worker, with a sum matching hours_total. Never divide crew-hours
+    to invent individual hours; omit worker_hours when unknown. Show every person's
+    hours on the confirmation card using task_hours_confirm before asking for the
+    reporter's reply. This confirms the reporter's account, not each worker's signature.
     """
     return C.draft_task_log(db(), wa_phone, extraction, raw_message)
 

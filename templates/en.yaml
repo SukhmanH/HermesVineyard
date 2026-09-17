@@ -7,6 +7,9 @@
 
 spray_missing_gusts: "NO spraying: gust data is missing or incomplete. Get current gust readings before reassessing; missing does not mean calm."
 
+task_hours_ask: "How many hours did each person work?"
+task_hours_confirm: "Individual hours: {worker_hours}. Crew total: {hours_total} hours. Is each amount correct?"
+
 meta:
   lang: en
   register: "manager-brief; dense, decision-first"

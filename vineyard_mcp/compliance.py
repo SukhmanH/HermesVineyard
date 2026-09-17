@@ -276,8 +276,35 @@ def _validate_memberships(conn: sqlite3.Connection, draft: dict[str, Any]) -> li
     return []
 
 
+def _validate_worker_hours(draft: dict[str, Any]) -> list[dict[str, Any]]:
+    if "worker_hours" not in draft or draft["worker_hours"] is None:
+        return []  # legacy/crew-only reports remain honest: no inferred allocation
+    entries = draft["worker_hours"]
+    invalid = [{"field": "worker_hours", "why": "require_each_worker_finite_hours_and_matching_total"}]
+    if not isinstance(entries, list) or not entries:
+        return invalid
+    ids, values = [], []
+    for entry in entries:
+        if not isinstance(entry, dict) or type(entry.get("contact_id")) is not int:
+            return invalid
+        value = entry.get("hours")
+        if not _positive(value) or float(value) > 24:
+            return invalid
+        ids.append(entry["contact_id"])
+        values.append(float(value))
+    workers = draft.get("workers")
+    if (not isinstance(workers, list) or any(type(w) is not int for w in workers)
+            or len(set(ids)) != len(ids) or set(ids) != set(workers)):
+        return invalid
+    if not _positive(draft.get("hours_total")) or not math.isclose(
+        sum(values), float(draft["hours_total"]), rel_tol=1e-9, abs_tol=1e-6
+    ):
+        return invalid
+    return []
+
+
 def _validate_task(draft: dict[str, Any]) -> list[dict[str, Any]]:
-    missing = [{"field": f, "why": "required"} for f in TASK_REQUIRED
+    missing = _validate_worker_hours(draft) + [{"field": f, "why": "required"} for f in TASK_REQUIRED
                if not isinstance(draft.get(f), str) or not draft[f].strip()]
     if not _canonical_date(draft.get("log_date")):
         missing.append({"field": "log_date", "why": "bad_format_expect_YYYY-MM-DD"})
@@ -389,7 +416,7 @@ def _merge_fields(draft: dict[str, Any], extraction: dict[str, Any], *, correcti
     for key, value in (extraction or {}).items():
         if key.startswith("_") or key in _IMMUTABLE or (correction and key == "source_msg_id"):
             continue
-        if (correction or value not in (None, "", [])) and draft.get(key) != value:
+        if (correction or key == "worker_hours" or value not in (None, "", [])) and draft.get(key) != value:
             draft[key] = value
             changed.add(key)
     if changed & {"product", "product_name_raw", "product_id"}:
@@ -938,10 +965,11 @@ def commit_task_log(
         )
         log_id = int(cur.lastrowid)
 
+        individual = {w["contact_id"]: w["hours"] for w in d.get("worker_hours") or []}
         for contact_id in d.get("workers") or []:
             conn.execute(
-                "INSERT OR IGNORE INTO task_workers (task_log_id, contact_id) VALUES (?,?)",
-                (log_id, contact_id),
+                "INSERT INTO task_workers (task_log_id, contact_id, hours) VALUES (?,?,?)",
+                (log_id, contact_id, individual.get(contact_id)),
             )
 
         conn.execute(
@@ -1046,8 +1074,13 @@ def draft_correction(
     if block:
         draft["block_code"] = block["code"]
     if table == "task_log":
-        draft["workers"] = [r[0] for r in conn.execute(
-            "SELECT contact_id FROM task_workers WHERE task_log_id=? ORDER BY contact_id", (log_id,))]
+        memberships = conn.execute(
+            "SELECT contact_id,hours FROM task_workers WHERE task_log_id=? ORDER BY contact_id",
+            (log_id,),
+        ).fetchall()
+        draft["workers"] = [r["contact_id"] for r in memberships]
+        if any(r["hours"] is not None for r in memberships):
+            draft["worker_hours"] = [dict(r) for r in memberships]
     else:
         draft["_rate_flag"] = original.get("rate_flag")
         draft["rate_confirmed"] = bool(original.get("rate_flag"))

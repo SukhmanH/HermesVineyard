@@ -179,6 +179,63 @@ def _append_literal(ws, values):
     ws.append(cells)
 
 
+def build_hours_period(path: str, start: str, end: str) -> int:
+    """Inclusive, manager-specified period. No payroll allocation is inferred."""
+    import math
+
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "entries"
+    _append_literal(ws, ["date", "contact_id", "worker", "property", "task", "hours",
+                         "notes", "status", "task_log_id"])
+    totals = {}
+    with closing(conn_ro()) as c:
+        c.execute("BEGIN")
+        has_hours = any(r[1] == "hours" for r in c.execute("PRAGMA table_info(task_workers)"))
+        hours_sql = "tw.hours" if has_hours else "NULL"
+        rows = c.execute(f"""
+            SELECT t.log_date, tw.contact_id, ct.full_name, b.name, t.task_type,
+                   {hours_sql}, t.notes, t.id, t.confirmed_by_reply
+            FROM task_log_current t LEFT JOIN task_workers tw ON tw.task_log_id=t.id
+            LEFT JOIN contacts ct ON ct.id=tw.contact_id
+            LEFT JOIN blocks b ON b.id=t.block_id
+            WHERE t.log_date >= ? AND t.log_date <= ?
+            ORDER BY t.log_date, t.id, tw.contact_id
+        """, (start, end)).fetchall()
+        for day, worker_id, name, block, task_type, value, notes, log_id, reply in rows:
+            valid = (isinstance(value, (int, float)) and math.isfinite(value)
+                     and 0 < value <= 24 and bool(reply and reply.strip()))
+            status = "RECORDED" if valid else "MISSING_INDIVIDUAL_HOURS"
+            _append_literal(ws, [day, worker_id, name, block, task_type,
+                                 value if valid else None, notes, status, log_id])
+            total = totals.setdefault(worker_id, [name, 0, False])
+            total[1] += value if valid else 0
+            total[2] |= not valid
+    summary = wb.create_sheet("worker_totals")
+    _append_literal(summary, ["contact_id", "worker", "recorded_hours", "status"])
+    for worker_id, (name, total, incomplete) in sorted(totals.items(), key=lambda p: p[0] or -1):
+        _append_literal(summary, [worker_id, name, total,
+            "INCOMPLETE" if incomplete else "RECORDED_HOURS_ONLY"])
+    meta = wb.create_sheet("metadata")
+    for row in [("period_from_inclusive", start), ("period_to_inclusive", end),
+                ("timezone", "America/Vancouver"),
+                ("scope", "Reported individual hours only; not a Payworks import or certified payroll"),
+                ("missing_days", "No attendance schedule: unreported days cannot be inferred"),
+                ("legacy", "Crew totals are never divided; missing individual values remain blank"),
+                ("confirmation", "Task reporter confirmation, not each participant's signature"),
+                ("status", "NO_RECORDS" if not rows else "MANAGER_REVIEW_REQUIRED")]:
+        _append_literal(meta, row)
+    for sheet in (ws, summary):
+        _style_header(sheet)
+        _widths(sheet, sheet.max_column)
+        sheet.auto_filter.ref = sheet.dimensions
+    wb.save(path)
+    wb.close()
+    return len(rows)
+
+
 def build_compliance_month(path: str, year: int, month: int) -> int:
     """Export all raw monthly spray records and their immediate correction links."""
     import openpyxl
@@ -354,7 +411,24 @@ def cli() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--compliance-month", metavar="YYYY-MM",
                         help="Export a historical calendar month; no backups or rotation")
+    parser.add_argument("--hours-from", metavar="YYYY-MM-DD")
+    parser.add_argument("--hours-to", metavar="YYYY-MM-DD")
     args = parser.parse_args()
+    if args.hours_from is not None or args.hours_to is not None:
+        from datetime import date
+        if not args.hours_from or not args.hours_to or args.compliance_month:
+            parser.error("provide both hours dates, without --compliance-month")
+        try:
+            start, end = date.fromisoformat(args.hours_from), date.fromisoformat(args.hours_to)
+            if start.isoformat() != args.hours_from or end.isoformat() != args.hours_to or start > end:
+                raise ValueError("invalid period")
+        except ValueError:
+            parser.error("hours dates must be YYYY-MM-DD with from <= to")
+        os.makedirs(EXPORT_DIR, exist_ok=True)
+        path = os.path.join(EXPORT_DIR, f"hours-{start}-to-{end}.xlsx")
+        count = build_hours_period(path, str(start), str(end))
+        log(f"{path}: {count} worker/task entries; manager review required")
+        return 0
     if args.compliance_month is None:
         return main()
     if not re.fullmatch(r"[0-9]{4}-[0-9]{2}", args.compliance_month):

@@ -163,8 +163,14 @@ CREATE INDEX idx_task_block ON task_log (block_id, log_date);
 CREATE TABLE task_workers (
   task_log_id INTEGER NOT NULL REFERENCES task_log(id),
   contact_id  INTEGER NOT NULL REFERENCES contacts(id),
+  hours REAL CHECK (hours IS NULL OR (hours > 0 AND hours <= 24)),
   PRIMARY KEY (task_log_id, contact_id)
 );
+
+CREATE TRIGGER trg_task_workers_no_update BEFORE UPDATE ON task_workers
+BEGIN SELECT RAISE(ABORT, 'task_workers is append-only; insert a task correction'); END;
+CREATE TRIGGER trg_task_workers_no_delete BEFORE DELETE ON task_workers
+BEGIN SELECT RAISE(ABORT, 'task_workers is append-only'); END;
 
 -- Every inbound/outbound message, verbatim. Our own durable copy, independent of Hermes Agent's
 -- memory and of WhatsApp history.

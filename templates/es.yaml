@@ -10,6 +10,9 @@
 
 spray_missing_gusts: "NO fumigar: faltan datos de ráfagas o están incompletos. Consigue datos actuales de ráfagas antes de volver a evaluar; que falten datos no significa que no haya viento."
 
+task_hours_ask: "¿Cuántas horas trabajó cada quien?"
+task_hours_confirm: "Horas por persona: {worker_hours}. Total entre todos: {hours_total} horas. ¿Está bien cada cantidad?"
+
 meta:
   lang: es
   register: "Mexican Spanish, informal-respectful, ustedes"

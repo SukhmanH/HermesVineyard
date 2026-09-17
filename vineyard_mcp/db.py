@@ -16,7 +16,7 @@ from typing import Any
 
 from .config import REPO_ROOT, get_settings
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 SCHEMA_PATH = REPO_ROOT / "schema.sql"
 
 
@@ -88,6 +88,15 @@ def init_db(conn: sqlite3.Connection) -> bool:
 # a migration that loses data is indistinguishable from the append-only violation the triggers
 # exist to prevent.
 MIGRATIONS: dict[int, list[str]] = {
+    7: [
+        # NULL retains the distinction between unknown and confirmed individual hours.
+        "ALTER TABLE task_workers ADD COLUMN hours REAL "
+        "CHECK (hours IS NULL OR (hours > 0 AND hours <= 24))",
+        "CREATE TRIGGER IF NOT EXISTS trg_task_workers_no_update BEFORE UPDATE ON task_workers "
+        "BEGIN SELECT RAISE(ABORT, 'task_workers is append-only; insert a task correction'); END",
+        "CREATE TRIGGER IF NOT EXISTS trg_task_workers_no_delete BEFORE DELETE ON task_workers "
+        "BEGIN SELECT RAISE(ABORT, 'task_workers is append-only'); END",
+    ],
     6: [
         # Replace only a derived view, never application records. NULL means unknown,
         # not permission to enter. Drop/create is atomic with the version marker.
