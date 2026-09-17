@@ -1,6 +1,18 @@
 # Grower improvements — 2026-09-16
 
-## Accepted code and verification
+## Current integration status
+
+Integrated on master in `/home/waris/hermes-vineyard`:
+- `e2a6937`: NULL-expiry restrictions retained in the direct SQL `rei_active` view, schema migration 6, atomic migration rollback, and three regression tests.
+- `b6c87d1`: correction validation/snapshot/provenance/supersession fixes, strict missing-gust policy, multilingual warning templates, and lint cleanup.
+
+Parent verification on the main worktree after integration: ` .venv/bin/python -m pytest -q` returned **365 passed in 5.90s**; `.venv/bin/python -m ruff check .` returned **All checks passed!**; `git diff --check` was clean. Parent inspected the code diff; this is not an independent compliance certification. Owner's existing uncommitted changes remain outside these commits.
+
+Remaining: explicit per-worker hours capture and payroll export are NOT implemented. The unfinished test was removed from the repository and is only a scratch artifact. Punjabi warning needs human review. No production migration, service restart, push, messaging, or operational deployment was performed. Missing gust forecasts now yield NO unless a sufficiently long covered run exists; this can prevent ECCC-only approval where gusts are absent.
+
+The sections below preserve earlier implementation evidence and historical defects; where they describe the old gust policy, unresolved SQL view, or lint issue, this current integration status supersedes them.
+
+## Historical accepted code and verification
 
 Final accepted code HEAD: 7508f5b. Full fixture-only suite after removing the rejected correction prototype: 309 passed in 4.87s. Initial baseline: 265 tests. No deployment/restart or production data migration was performed. Existing owner changes in schema.sql, cron setup and report emitter were left uncommitted and intact.
 
