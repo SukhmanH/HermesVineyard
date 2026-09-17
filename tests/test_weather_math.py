@@ -119,15 +119,14 @@ def test_gusts_block_even_when_average_wind_is_fine():
     assert v["reason"] == REASON_GUSTS
 
 
-def test_missing_gusts_do_not_veto_but_are_declared():
-    """ECCC publishes gusts only on some hours (live check 2026-09-16: gusts on the windy
-    afternoon, none on the calm morning), so a null-gust veto would kill the morning windows
-    the whole system exists to find. Missing gusts must not silently read as calm either:
-    the verdict declares coverage, and windows judged on wind alone are flagged."""
+def test_missing_gusts_fail_safe_and_partial_data_excludes_unknown_hours():
+    """Unknown gusts do not qualify as a checked drift gate."""
     v = compute_spray_window(calm_day(gust=None), CFG, age_hours=0.1)
-    assert v["verdict"] == "YES"
+    assert v["verdict"] == "NO"
+    assert v["reason"] == "missing_gusts"
     assert v["gust_data"] == "missing"
-    assert v["best_window"]["gusts_checked"] is False
+    assert v["best_window"] is None
+    assert v["reason_template"] == "spray_missing_gusts"
 
     assert compute_spray_window(calm_day(), CFG, age_hours=0.1)["gust_data"] == "present"
 
@@ -135,7 +134,8 @@ def test_missing_gusts_do_not_veto_but_are_declared():
     partial[0]["gust_kmh"] = None
     vp = compute_spray_window(partial, CFG, age_hours=0.1)
     assert vp["gust_data"] == "partial"
-    assert vp["best_window"]["gusts_checked"] is False
+    assert vp["best_window"]["gusts_checked"] is True
+    assert vp["best_window"]["start"] == "09:00"
 
     covered = calm_day()
     covered[0]["gust_kmh"] = None
@@ -207,7 +207,7 @@ def test_utc_input_is_converted_before_daylight_filtering():
     the first live fetch: a confident '05:00-09:00' that was really 22:00-02:00 Pacific."""
     # 05:00-09:00 UTC == 22:00-02:00 PDT: night, and must be excluded.
     night_utc = [
-        {"time": f"2026-08-21T{h:02d}:00+00:00", "wind_kmh": 8, "temp_c": 18,
+        {"time": f"2026-08-21T{h:02d}:00+00:00", "wind_kmh": 8, "gust_kmh": 12, "temp_c": 18,
          "precip_prob_pct": 0}
         for h in range(5, 10)
     ]
@@ -220,7 +220,7 @@ def test_utc_window_times_are_reported_in_local_time():
     """A window must be stated in the time the crew reads off their own phone."""
     # 15:00-19:00 UTC == 08:00-12:00 PDT.
     utc = [
-        {"time": f"2026-08-21T{h:02d}:00+00:00", "wind_kmh": 8, "temp_c": 18,
+        {"time": f"2026-08-21T{h:02d}:00+00:00", "wind_kmh": 8, "gust_kmh": 12, "temp_c": 18,
          "precip_prob_pct": 0}
         for h in range(15, 20)
     ]
@@ -233,7 +233,7 @@ def test_utc_window_times_are_reported_in_local_time():
 def test_naive_timestamps_are_treated_as_already_local():
     """Our own cached/normalized data may be naive local; it must not be shifted."""
     naive = [
-        {"time": f"2026-08-21T{h:02d}:00", "wind_kmh": 8, "temp_c": 18, "precip_prob_pct": 0}
+        {"time": f"2026-08-21T{h:02d}:00", "wind_kmh": 8, "gust_kmh": 12, "temp_c": 18, "precip_prob_pct": 0}
         for h in range(8, 13)
     ]
     v = compute_spray_window(naive, CFG, age_hours=0.2)
@@ -243,7 +243,7 @@ def test_naive_timestamps_are_treated_as_already_local():
 
 def test_an_unknown_timezone_does_not_crash_the_brief():
     hours = [
-        {"time": f"2026-08-21T{h:02d}:00", "wind_kmh": 8, "temp_c": 18, "precip_prob_pct": 0}
+        {"time": f"2026-08-21T{h:02d}:00", "wind_kmh": 8, "gust_kmh": 12, "temp_c": 18, "precip_prob_pct": 0}
         for h in range(8, 13)
     ]
     assert compute_spray_window(hours, CFG, tz="Mars/Olympus_Mons")["verdict"] == "YES"

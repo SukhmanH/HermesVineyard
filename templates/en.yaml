@@ -5,6 +5,8 @@
 # he types those in English by choice, which is what keeps the legally binding path free of any
 # transcription or translation. Everything else he receives is Gurmukhi.
 
+spray_missing_gusts: "NO spraying: gust data is missing or incomplete. Get current gust readings before reassessing; missing does not mean calm."
+
 meta:
   lang: en
   register: "manager-brief; dense, decision-first"

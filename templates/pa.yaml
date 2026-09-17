@@ -22,6 +22,9 @@
 #   -> input is voice only. Never ask a pa contact to type.
 #   -> output is Gurmukhi text. Never send them English, not even as a fallback.
 
+# New gust warning requires Punjabi-speaker review before deployment.
+spray_missing_gusts: "ਸਪਰੇਅ ਨਾ ਕਰੋ। ਹਵਾ ਦੇ ਝੋਕੇ ਕਿੰਨੇ ਤੇਜ਼ ਹਨ, ਇਸ ਦੀ ਪੂਰੀ ਜਾਣਕਾਰੀ ਨਹੀਂ ਹੈ। ਪਹਿਲਾਂ ਝੋਕਿਆਂ ਦੀ ਹੁਣ ਦੀ ਰਫ਼ਤਾਰ ਪਤਾ ਕਰੋ, ਫਿਰ ਮੁੜ ਜਾਂਚ ਕਰਾਂਗੇ। ਜਾਣਕਾਰੀ ਨਾ ਹੋਣ ਦਾ ਮਤਲਬ ਹਵਾ ਸ਼ਾਂਤ ਹੋਣਾ ਨਹੀਂ ਹੈ।"
+
 meta:
   lang: pa
   script: gurmukhi

@@ -47,6 +47,8 @@ def check() -> list[str]:
             continue
 
         keys = set(data)
+        if not isinstance(data.get("spray_missing_gusts"), str) or not data["spray_missing_gusts"].strip():
+            problems.append(f"{lang}.yaml missing SAFETY message 'spray_missing_gusts'")
         if lang in WORKER_LANGS:
             for key in SAFETY_KEYS:
                 if key not in keys:

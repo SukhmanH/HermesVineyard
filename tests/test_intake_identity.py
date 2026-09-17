@@ -19,7 +19,6 @@ import pytest
 
 from vineyard_mcp import compliance as C
 
-
 LID = "111111111111111@lid"
 OTHER_LID = "222222222222222@lid"
 

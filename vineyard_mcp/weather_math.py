@@ -15,6 +15,7 @@ Hermes may not soften a NO into a YES (docs/01 §3).
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -60,7 +61,7 @@ def _num(value: Any) -> float | None:
         f = float(value)
     except (TypeError, ValueError):
         return None
-    return None if f != f else f  # NaN check
+    return f if math.isfinite(f) and not isinstance(value, bool) else None
 
 
 def _gust_coverage(hours_: list[dict[str, Any]]) -> str:
@@ -87,11 +88,10 @@ def _hour_ok(
         return False, REASON_WIND_CALM
 
     gust = _num(hour.get("gust_kmh"))
-    # A missing gust is NOT treated as calm here, but it does not veto the hour either:
-    # ECCC never publishes gusts, so a null-gust veto would make every verdict NO forever
-    # and the tool would teach the grower to ignore it. Instead compute_spray_window marks
-    # the whole verdict "gust_data: missing" — an audited caveat, not a silent pass.
-    if gust is not None and gust > cfg.gust_max_kmh:
+    # Missing gusts cannot establish a safe drift gate. Only covered hours may qualify.
+    if gust is None or gust < 0:
+        return False, "missing_gusts"
+    if gust > cfg.gust_max_kmh:
         return False, REASON_GUSTS
 
     temp = _num(hour.get("temp_c"))
@@ -272,6 +272,8 @@ def compute_spray_window(
     if counts:
         verdict["reason"] = max(counts, key=lambda k: counts[k])
         verdict["blocked_hours"] = counts
+        if verdict["reason"] == "missing_gusts":
+            verdict["reason_template"] = "spray_missing_gusts"
     else:
         # Every hour passed individually but no run reached min_window_hours.
         verdict["reason"] = REASON_TOO_SHORT

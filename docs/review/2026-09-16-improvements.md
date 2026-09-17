@@ -19,7 +19,27 @@ Monthly export command from repository root:
     .venv/bin/python tools/build_exports.py --compliance-month 2026-08
 It writes to configured EXPORT_DIR without running backup/rotation. No real production export was generated in this work session. Weekly payroll prototype was not shipped: task_workers has only task_log_id/contact_id, not per-worker hours. Crew totals cannot be presented as confirmed individual payroll hours.
 
-## Correction flow: NOT FIXED
+## Isolated follow-up implementation (not deployed)
+
+Worktree: `/tmp/hermes-vineyard-followups-20260916`, branch `followups-20260916-isolated`, based on f64aba5. Owner worktree and external skills were not modified.
+
+Implemented in this increment:
+- Correction-specific merge rules preserve raw/source provenance, reporter identity and the separate supersession target through follow-ups. Explicit block/product changes resolve again; changed products clear old label snapshots. Unrelated edits retain historical PCP/REI/PHI and rate warnings, including after registry changes. Unknown products remain collecting until label REI is supplied.
+- Shared finite/positive checks for application amounts, task hours and quantities, finite weather/PHI checks, required task fields and calendar dates at draft/correction/commit gates. Task membership validation and membership preservation on corrections.
+- Commit re-reads the token and checks supersession under BEGIN IMMEDIATE before insertion. A synchronized two-connection regression verifies exactly one correction commits. Original append-only records remain untouched; follow-ups require presentation again.
+- Missing/invalid gust hours now fail safe and cannot belong to an approved window. Partial forecasts may approve only a covered run. Cached verdicts retain the refusal and template key. en/es/pa templates include the warning, with no English fallback. Punjabi warning requires human language review before deployment.
+- Removed the pre-existing I001 blank-line issue.
+
+Verification: clean f64aba5 archive baseline executed separately: 309 passed in 4.47s. New regression tests were observed failing before their corresponding fixes. Final verification: `/home/waris/hermes-vineyard/.venv/bin/python -m pytest -q`: 362 passed in 4.76s; `/home/waris/hermes-vineyard/.venv/bin/ruff check .`: All checks passed; `git diff --check`: clean.
+
+Not completed in this increment:
+- Explicit per-worker confirmed hours capture and read-only payroll export remain unimplemented. `hours_total` remains crew-hours, never confirmed individual payroll hours. No schema or export changes were made; the external exports skill's claim of existing per-worker hours remains incorrect.
+- REI view/schema migration and its test are owned by the parent agent separately; not included or verified here. No live migration, services, messaging, production database access, push or deployment.
+- Independent review is still required, especially for historical records with unknown label intervals. Direct arbitrary SQL edits are not made trustworthy by input validation. Existing API confirmation semantics are preserved; tests are not a legal compliance certification.
+
+Curator recommendations (external skills intentionally read-only): replace wind-only gust approval advice with the strict covered-hour policy and render `spray_missing_gusts` in the recipient's language; correct exports/task-log guidance to distinguish crew-hours from explicitly confirmed individual hours; retain snapshot/provenance and fresh presentation instructions in correction guidance.
+
+## Historical correction flow: NOT FIXED in accepted baseline
 
 The uncommitted correction rewrite passed 315 tests, but independent isolated probes found blockers. It was removed from active source, not committed as working code. Reference-only patch and its six regression tests are archived alongside this file; they are not safe to apply as a completed solution.
 

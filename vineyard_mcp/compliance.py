@@ -254,12 +254,47 @@ def _canonical_time(value: Any) -> bool:
     return 0 <= hh < 24 and 0 <= mm < 60
 
 
+def _finite(value: Any) -> bool:
+    try:
+        return not isinstance(value, bool) and math.isfinite(float(value))
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
+def _positive(value: Any) -> bool:
+    return _finite(value) and float(value) > 0
+
+
+def _validate_memberships(conn: sqlite3.Connection, draft: dict[str, Any]) -> list[dict[str, Any]]:
+    workers = draft.get("workers")
+    if not isinstance(workers, list) or not workers or any(type(w) is not int for w in workers):
+        return [{"field": "workers", "why": "require_contact_ids"}]
+    if len(set(workers)) != len(workers) or any(
+        conn.execute("SELECT 1 FROM contacts WHERE id=?", (w,)).fetchone() is None for w in workers
+    ):
+        return [{"field": "workers", "why": "unknown_or_duplicate_contact"}]
+    return []
+
+
+def _validate_task(draft: dict[str, Any]) -> list[dict[str, Any]]:
+    missing = [{"field": f, "why": "required"} for f in TASK_REQUIRED
+               if not isinstance(draft.get(f), str) or not draft[f].strip()]
+    if not _canonical_date(draft.get("log_date")):
+        missing.append({"field": "log_date", "why": "bad_format_expect_YYYY-MM-DD"})
+    if not _positive(draft.get("hours_total")):
+        why = "required" if draft.get("hours_total") is None else "must_be_finite_positive"
+        missing.append({"field": "hours_total", "why": why})
+    if draft.get("quantity") is not None and not _positive(draft["quantity"]):
+        missing.append({"field": "quantity", "why": "must_be_finite_positive"})
+    return missing
+
+
 def _validate_spray(draft: dict[str, Any]) -> list[dict[str, Any]]:
     """Server-side validation (obligation 2). Returns structured missing/invalid fields."""
     missing: list[dict[str, Any]] = []
 
     for field in SPRAY_REQUIRED:
-        if draft.get(field) in (None, "", []):
+        if not isinstance(draft.get(field), str) or not draft[field].strip():
             missing.append({"field": field, "why": "required"})
 
     # block_code present but unresolved is a different question from block_code absent:
@@ -279,7 +314,7 @@ def _validate_spray(draft: dict[str, Any]) -> list[dict[str, Any]]:
 
     # Obligation 4: an unverified product yields NO re-entry interval. We ask the applicator to
     # read the label instead of quietly inventing one.
-    if draft.get("_product_unverified"):
+    if draft.get("_product_unverified") or draft.get("rei_hours") is None:
         missing.append({"field": "label_rei", "why": "product_unverified"})
 
     # BC requires prevailing weather on a pesticide application record (docs/02 §4). If the
@@ -298,12 +333,21 @@ def _validate_spray(draft: dict[str, Any]) -> list[dict[str, Any]]:
 
     for numeric in ("rate_value", "total_amount", "acres_treated"):
         val = draft.get(numeric)
-        if val is not None:
-            try:
-                if float(val) <= 0:
-                    missing.append({"field": numeric, "why": "must_be_positive"})
-            except (TypeError, ValueError):
-                missing.append({"field": numeric, "why": "not_a_number"})
+        if val is not None and not _positive(val):
+            if isinstance(val, str):
+                why = "not_a_number"
+            elif isinstance(val, (int, float)) and val < 0:
+                why = "must_be_positive"
+            else:
+                why = "must_be_finite_positive"
+            missing.append({"field": numeric, "why": why})
+
+    for numeric in ("wind_kmh", "temp_c", "rh_pct", "phi_days"):
+        val = draft.get(numeric)
+        if val is not None and (not _finite(val) or
+                                (numeric != "temp_c" and float(val) < 0) or
+                                (numeric == "rh_pct" and float(val) > 100)):
+            missing.append({"field": numeric, "why": "invalid_finite_number"})
 
     # A re-entry interval is hours after the spray ends: negative would schedule re-entry
     # before the spray happened, non-finite would poison every downstream countdown.
@@ -317,14 +361,14 @@ def _validate_spray(draft: dict[str, Any]) -> list[dict[str, Any]]:
         except (TypeError, ValueError):
             missing.append({"field": rei_field, "why": "not_a_number"})
             continue
-        if not math.isfinite(rei_f) or rei_f < 0:
+        if isinstance(val, bool) or not math.isfinite(rei_f) or rei_f < 0:
             missing.append({"field": rei_field, "why": "must_be_zero_or_positive_hours"})
 
     # A non-canonical date/time is a silent data-corruption risk: '2026-2-3' or '24:00'
     # would parse somewhere downstream and write a record an auditor cannot read back.
     # Treat them exactly like a missing field: ask the worker, commit nothing.
     val = draft.get("log_date")
-    if val is not None and not _canonical_date(val):
+    if not _canonical_date(val):
         missing.append({"field": "log_date", "why": "bad_format_expect_YYYY-MM-DD"})
     for tf in ("start_time", "end_time"):
         val = draft.get(tf)
@@ -332,6 +376,82 @@ def _validate_spray(draft: dict[str, Any]) -> list[dict[str, Any]]:
             missing.append({"field": tf, "why": "bad_format_expect_HH:MM"})
 
     return missing
+
+
+# Derived identities and provenance cannot be supplied through extracted fields.
+_IMMUTABLE = {"id", "created_at_utc", "created_by", "corrects_log_id", "raw_message",
+              "confirmed_by_reply", "rei_expires_at_utc", "applicator_contact_id",
+              "applicator_name", "wa_phone", "rate_flag"}
+
+
+def _merge_fields(draft: dict[str, Any], extraction: dict[str, Any], *, correction: bool) -> set[str]:
+    changed = set()
+    for key, value in (extraction or {}).items():
+        if key.startswith("_") or key in _IMMUTABLE or (correction and key == "source_msg_id"):
+            continue
+        if (correction or value not in (None, "", [])) and draft.get(key) != value:
+            draft[key] = value
+            changed.add(key)
+    if changed & {"product", "product_name_raw", "product_id"}:
+        changed.update(k for k in ("pcp_number", "rei_hours", "phi_days", "label_rei")
+                       if k in extraction and extraction[k] not in (None, "", []))
+    if changed & {"product", "product_name_raw", "product_id", "rate_value", "rate_units"} and "rate_confirmed" in extraction:
+        changed.add("rate_confirmed")
+    if "block" in changed and "block_code" not in changed:
+        draft["block_code"] = draft["block"]
+    if "product" in changed and "product_name_raw" not in changed:
+        draft["product_name_raw"] = draft["product"]
+    return changed
+
+
+def _prepare_spray(conn: sqlite3.Connection, draft: dict[str, Any], changed: set[str],
+                   *, correction: bool) -> None:
+    """Resolve explicit identity edits; do not refresh historical label snapshots."""
+    identity_changed = bool(changed & {"product", "product_name_raw", "product_id"})
+    if "product_id" in changed and not changed & {"product", "product_name_raw"}:
+        product = row_to_dict(conn.execute("SELECT * FROM products WHERE id=?",
+                                          (draft.get("product_id"),)).fetchone())
+        draft["product_name_raw"] = product["trade_name"] if product else ""
+    else:
+        product = resolve_product(conn, draft.get("product_name_raw") or draft.get("product"))
+    if identity_changed:
+        for key in ("pcp_number", "rei_hours", "phi_days", "label_rei"):
+            if key not in changed:
+                draft.pop(key, None)
+        draft.pop("_label_resolved", None)
+    # Corrections start with historical snapshots, including unknown intervals. The registry
+    # only supplies a new snapshot when product identity is explicitly changed.
+    if (not correction or identity_changed) and not draft.get("_label_resolved"):
+        draft["product_id"] = product["id"] if product else None
+        draft["_product_verified"] = bool(product and product["verified"])
+        if product and product["verified"]:
+            for key in ("pcp_number", "rei_hours", "phi_days"):
+                if key not in changed:
+                    draft[key] = product[key]
+            draft["_label_resolved"] = True
+    if "label_rei" in changed:
+        draft["rei_hours"] = draft["label_rei"]
+        draft["_label_resolved"] = True
+    draft["_product_unverified"] = not draft.get("_label_resolved") or draft.get("rei_hours") is None
+    if draft["_product_unverified"]:
+        draft.pop("rei_hours", None)
+    if not correction or changed & {"product", "product_name_raw", "product_id", "rate_value", "rate_units"}:
+        if changed & {"product", "product_name_raw", "product_id", "rate_value", "rate_units"} and "rate_confirmed" not in changed:
+            draft.pop("rate_confirmed", None)
+        _check_rate_against_label(draft, product)
+    draft["rate_flag"] = draft.get("_rate_flag")
+
+
+def _prepare_block(conn: sqlite3.Connection, draft: dict[str, Any], changed: set[str]) -> None:
+    if "block_id" in changed and not changed & {"block", "block_code"}:
+        block = row_to_dict(conn.execute("SELECT * FROM blocks WHERE id=? AND active=1",
+                                        (draft.get("block_id"),)).fetchone())
+    else:
+        block = resolve_block(conn, draft.get("block_code") or draft.get("block"))
+    draft["block_id"] = block["id"] if block else None
+    if block:
+        draft["block_code"] = block["code"]
+        draft["_site"] = block["site"]
 
 
 def draft_spray_log(
@@ -355,11 +475,8 @@ def draft_spray_log(
     draft: dict[str, Any] = json.loads(existing["draft_json"]) if existing else {}
     token = existing["confirm_token"] if existing else _token()
 
-    # Merge: only non-empty new values overwrite. A follow-up answer must not blank a field
-    # the worker already gave us.
-    for key, value in (extraction or {}).items():
-        if value not in (None, "", []):
-            draft[key] = value
+    correction = bool(existing and existing["corrects_log_id"] is not None)
+    changed = _merge_fields(draft, extraction, correction=correction)
 
     # Obligation 3: keep the worker's own words, accumulated across the interview.
     # Dedupe: the agent often re-sends the same summary on each follow-up call, and
@@ -371,39 +488,15 @@ def draft_spray_log(
 
     draft.setdefault("log_date", datetime.now(ZoneInfo(settings.timezone)).strftime("%Y-%m-%d"))
 
-    block = resolve_block(conn, draft.get("block_code") or draft.get("block"))
-    if block:
-        draft["block_id"] = block["id"]
-        draft["block_code"] = block["code"]
+    _prepare_block(conn, draft, changed)
+    if not correction and draft.get("block_id"):
+        block = conn.execute("SELECT acres FROM blocks WHERE id=?", (draft["block_id"],)).fetchone()
         draft.setdefault("acres_treated", block["acres"])
-        draft["_site"] = block["site"]
-    else:
-        draft["block_id"] = None
+    _prepare_spray(conn, draft, changed, correction=correction)
 
-    product = resolve_product(conn, draft.get("product_name_raw") or draft.get("product"))
-    draft.pop("_product_unverified", None)
-    if product:
-        draft["product_id"] = product["id"]
-        draft["product_name_raw"] = draft.get("product_name_raw") or product["trade_name"]
-        if product["verified"]:
-            draft["pcp_number"] = product["pcp_number"]
-            draft["rei_hours"] = product["rei_hours"]
-            draft["phi_days"] = product["phi_days"]
-            draft["_product_verified"] = True
-        else:
-            # Obligation 4 in action: we know the product but refuse to speak for its label.
-            draft["_product_unverified"] = True
-            draft["_product_verified"] = False
-            if draft.get("label_rei") is not None:
-                draft["rei_hours"] = draft["label_rei"]
-                draft.pop("_product_unverified", None)
-    else:
-        draft["product_id"] = None
-
-    _check_rate_against_label(draft, product)
-
-    draft["applicator_contact_id"] = contact["id"]
-    draft["applicator_name"] = contact["full_name"]
+    if not correction:
+        draft["applicator_contact_id"] = contact["id"]
+        draft["applicator_name"] = contact["full_name"]
 
     _attach_weather(conn, draft)
 
@@ -618,6 +711,25 @@ def _load_committable(
     return row, None
 
 
+def _commit_guard(conn: sqlite3.Connection, row: dict[str, Any], worker_reply: str,
+                  wa_phone: str | None) -> dict[str, Any] | None:
+    """Re-read token and target while holding the write lock, before any INSERT."""
+    current, refusal = _load_committable(conn, row["confirm_token"], row["intent"],
+                                        worker_reply, wa_phone)
+    if refusal:
+        return refusal
+    if current != row:
+        return err("draft_changed_reconfirm")
+    if row["corrects_log_id"] is not None:
+        table = "spray_log" if row["intent"] == "spray_report" else "task_log"
+        superseded = conn.execute(f"SELECT id FROM {table} WHERE corrects_log_id=?",
+                                  (row["corrects_log_id"],)).fetchone()
+        if superseded:
+            return err("already_superseded", log_id=row["corrects_log_id"],
+                       superseded_by=superseded["id"])
+    return None
+
+
 def commit_spray_log(
     conn: sqlite3.Connection,
     confirm_token: str,
@@ -657,6 +769,9 @@ def commit_spray_log(
             )
 
     with transaction(conn):
+        refusal = _commit_guard(conn, row, worker_reply, wa_phone)
+        if refusal:
+            return refusal
         cur = conn.execute(
             """INSERT INTO spray_log (
                    log_date, start_time, end_time, block_id, acres_treated,
@@ -743,9 +858,7 @@ def draft_task_log(
     draft: dict[str, Any] = json.loads(existing["draft_json"]) if existing else {}
     token = existing["confirm_token"] if existing else _token()
 
-    for key, value in (extraction or {}).items():
-        if value not in (None, "", []):
-            draft[key] = value
+    changed = _merge_fields(draft, extraction, correction=bool(existing and existing["corrects_log_id"] is not None))
 
     if raw_message:
         prior = draft.get("raw_message") or ""
@@ -754,24 +867,9 @@ def draft_task_log(
     draft.setdefault("log_date", datetime.now(ZoneInfo(settings.timezone)).strftime("%Y-%m-%d"))
     draft.setdefault("workers", [contact["id"]])
 
-    block = resolve_block(conn, draft.get("block_code") or draft.get("block"))
-    draft["block_id"] = block["id"] if block else None
-    if block:
-        draft["block_code"] = block["code"]
+    _prepare_block(conn, draft, changed)
 
-    missing = [
-        {"field": f, "why": "required"}
-        for f in TASK_REQUIRED
-        if draft.get(f) in (None, "", [])
-    ]
-    if draft.get("hours_total") is None:
-        missing.append({"field": "hours_total", "why": "required"})
-    else:
-        try:
-            if float(draft["hours_total"]) <= 0:
-                missing.append({"field": "hours_total", "why": "must_be_positive"})
-        except (TypeError, ValueError):
-            missing.append({"field": "hours_total", "why": "not_a_number"})
+    missing = _validate_task(draft) + _validate_memberships(conn, draft)
 
     state = "ready" if not missing else "collecting"
     now = utcnow()
@@ -814,7 +912,15 @@ def commit_task_log(
 
     d = json.loads(row["draft_json"])
 
+    residual = _validate_task(d) + _validate_memberships(conn, d)
+    if residual:
+        return err("missing_fields", missing_fields=residual,
+                   hint="the draft changed after confirmation was requested; re-collect and re-confirm")
+
     with transaction(conn):
+        refusal = _commit_guard(conn, row, worker_reply, wa_phone)
+        if refusal:
+            return refusal
         cur = conn.execute(
             """INSERT INTO task_log (
                    log_date, task_type, block_id, hours_total, quantity, quantity_unit,
@@ -926,24 +1032,37 @@ def draft_correction(
     wa_phone = contact["wa_phone"] if contact else changes.get("wa_phone")
     if not wa_phone:
         return err("cannot_determine_reporter", log_id=log_id)
+    reporter = _contact(conn, wa_phone)
+    if table == "task_log" and (not reporter or not conn.execute(
+        "SELECT 1 FROM task_workers WHERE task_log_id=? AND contact_id=?",
+        (log_id, reporter["id"]),
+    ).fetchone()):
+        return err("reporter_not_task_worker", log_id=log_id)
+    wa_phone = _canonical_phone(conn, wa_phone)
 
     draft = {k: v for k, v in original.items() if k not in ("id", "created_at_utc", "created_by")}
     draft["corrects_log_id"] = log_id
-    for key, value in (changes or {}).items():
-        draft[key] = value
-
+    block = conn.execute("SELECT code FROM blocks WHERE id=?", (draft.get("block_id"),)).fetchone()
+    if block:
+        draft["block_code"] = block["code"]
+    if table == "task_log":
+        draft["workers"] = [r[0] for r in conn.execute(
+            "SELECT contact_id FROM task_workers WHERE task_log_id=? ORDER BY contact_id", (log_id,))]
+    else:
+        draft["_rate_flag"] = original.get("rate_flag")
+        draft["rate_confirmed"] = bool(original.get("rate_flag"))
+        draft["_label_resolved"] = original.get("rei_hours") is not None
+    changed = _merge_fields(draft, changes, correction=True)
+    _prepare_block(conn, draft, changed)
     if table == "spray_log":
-        block = conn.execute(
-            "SELECT code FROM blocks WHERE id = ?", (draft.get("block_id"),)
-        ).fetchone()
-        if block:
-            draft["block_code"] = block["code"]
+        _prepare_spray(conn, draft, changed, correction=True)
 
     if raw_message:
-        draft["raw_message"] = f"{original.get('raw_message', '')}\n[CORRECCION] {raw_message}".strip()
+        draft["raw_message"] = f"{original.get('raw_message', '')}\n{raw_message}".strip()
 
     intent = "spray_report" if table == "spray_log" else "task_report"
-    missing = _validate_spray(draft) if table == "spray_log" else []
+    missing = (_validate_spray(draft) if table == "spray_log"
+               else _validate_task(draft) + _validate_memberships(conn, draft))
     state = "ready" if not missing else "collecting"
     token = _token()
     now = utcnow()

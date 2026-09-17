@@ -8,6 +8,8 @@
 #
 # Follow-up questions and acknowledgements are known-good starting points, not a script.
 
+spray_missing_gusts: "NO fumigar: faltan datos de ráfagas o están incompletos. Consigue datos actuales de ráfagas antes de volver a evaluar; que falten datos no significa que no haya viento."
+
 meta:
   lang: es
   register: "Mexican Spanish, informal-respectful, ustedes"
