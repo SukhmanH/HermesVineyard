@@ -133,6 +133,25 @@ CREATE INDEX idx_spray_block ON spray_log (block_id, log_date);
 CREATE INDEX idx_spray_appl  ON spray_log (applicator_contact_id, log_date);
 CREATE INDEX idx_spray_rei   ON spray_log (rei_expires_at_utc);
 
+-- Packing/processing record: variety + medium (e.g. "Pinot Noir in olive oil").
+-- Not append-only like spray_log/task_log; simple reference table for year-over-year recall.
+CREATE TABLE packing_log (
+  id              INTEGER PRIMARY KEY,
+  log_date        TEXT NOT NULL,
+  variety         TEXT NOT NULL,
+  medium          TEXT NOT NULL,        -- e.g. 'olive oil', 'brine', 'dry'
+  block_id        INTEGER REFERENCES blocks(id),
+  quantity        REAL, quantity_unit TEXT,
+  notes           TEXT,
+  raw_message     TEXT NOT NULL,
+  source_msg_id   TEXT,
+  created_at_utc  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+  created_by      TEXT NOT NULL DEFAULT 'hermes'
+);
+
+CREATE INDEX idx_packing_date    ON packing_log (log_date);
+CREATE INDEX idx_packing_variety ON packing_log (variety);
+
 -- General task log (pruning, canopy, irrigation, mowing...). Same append-only rules.
 CREATE TABLE task_log (
   id              INTEGER PRIMARY KEY,

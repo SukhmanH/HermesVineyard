@@ -105,7 +105,14 @@ while IFS= read -r f; do
   fi
 
   # A report with no weather section is a partial compose, not a quiet day.
-  grep -q '🌤' <<<"$body" || { rejected_narration=1; continue; }
+  #
+  # Match the WORD, not a specific emoji. On 2026-09-07 a complete, correct
+  # report was suppressed for every owner because the composer wrote
+  # "🌡 WEATHER:" while this check grepped for "🌤" - the template says 🌤️,
+  # the model reached for the thermometer, and one codepoint of drift beat a
+  # guardrail whose whole job is to prevent silence. Emoji choice is model
+  # discretion; the section heading is the contract.
+  grep -qi 'weather' <<<"$body" || { rejected_narration=1; continue; }
 
   printf '%s\n' "$body"
   exit 0
