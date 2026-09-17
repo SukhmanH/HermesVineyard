@@ -356,5 +356,5 @@ CREATE VIEW rei_active AS
   SELECT s.id, s.block_id, b.code AS block_code, b.name AS block_name, b.site,
          s.product_name_raw, s.rei_expires_at_utc
   FROM spray_log_current s JOIN blocks b ON b.id = s.block_id
-  WHERE s.rei_expires_at_utc IS NOT NULL
-    AND s.rei_expires_at_utc > strftime('%Y-%m-%dT%H:%M:%SZ','now');
+  WHERE s.rei_expires_at_utc IS NULL
+     OR s.rei_expires_at_utc > strftime('%Y-%m-%dT%H:%M:%SZ','now');

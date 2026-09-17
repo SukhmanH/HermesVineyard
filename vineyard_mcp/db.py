@@ -16,7 +16,7 @@ from typing import Any
 
 from .config import REPO_ROOT, get_settings
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 SCHEMA_PATH = REPO_ROOT / "schema.sql"
 
 
@@ -88,6 +88,17 @@ def init_db(conn: sqlite3.Connection) -> bool:
 # a migration that loses data is indistinguishable from the append-only violation the triggers
 # exist to prevent.
 MIGRATIONS: dict[int, list[str]] = {
+    6: [
+        # Replace only a derived view, never application records. NULL means unknown,
+        # not permission to enter. Drop/create is atomic with the version marker.
+        "DROP VIEW IF EXISTS rei_active",
+        """CREATE VIEW rei_active AS
+           SELECT s.id, s.block_id, b.code AS block_code, b.name AS block_name, b.site,
+                  s.product_name_raw, s.rei_expires_at_utc
+           FROM spray_log_current s JOIN blocks b ON b.id = s.block_id
+           WHERE s.rei_expires_at_utc IS NULL
+              OR s.rei_expires_at_utc > strftime('%Y-%m-%dT%H:%M:%SZ','now')""",
+    ],
     2: [
         # Advisory support (docs/01 §D12): grounded recommendations need resistance groups,
         # what each product is registered for, and its reapplication interval.
@@ -187,14 +198,23 @@ def migrate(conn: sqlite3.Connection) -> list[int]:
     for version in sorted(MIGRATIONS):
         if version <= current:
             continue
-        for statement in MIGRATIONS[version]:
-            try:
-                conn.execute(statement)
-            except sqlite3.OperationalError as exc:
-                if "duplicate column" in str(exc).lower() or "already exists" in str(exc).lower():
-                    continue
-                raise
-        conn.execute("INSERT INTO schema_version (version) VALUES (?)", (version,))
+        # Savepoints also work when the caller already owns a transaction.
+        conn.execute("SAVEPOINT schema_migration")
+        try:
+            for statement in MIGRATIONS[version]:
+                try:
+                    conn.execute(statement)
+                except sqlite3.OperationalError as exc:
+                    if ("duplicate column" in str(exc).lower()
+                            or "already exists" in str(exc).lower()):
+                        continue
+                    raise
+            conn.execute("INSERT INTO schema_version (version) VALUES (?)", (version,))
+        except Exception:
+            conn.execute("ROLLBACK TO schema_migration")
+            conn.execute("RELEASE schema_migration")
+            raise
+        conn.execute("RELEASE schema_migration")
         applied.append(version)
     return applied
 
