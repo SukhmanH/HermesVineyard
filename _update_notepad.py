@@ -1,5 +1,4 @@
 import sqlite3
-import json
 
 db_path = "/home/waris/.hermes/state.db"
 conn = sqlite3.connect(db_path)

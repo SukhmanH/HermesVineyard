@@ -1,5 +1,4 @@
 import json
-import sqlite3
 
 with open("/tmp/weather_fetch_result.json") as f:
     d = json.load(f)

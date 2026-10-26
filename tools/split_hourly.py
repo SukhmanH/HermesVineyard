@@ -1,4 +1,5 @@
 import json
+
 with open("/tmp/weather_fetch_result.json") as f:
     data = json.load(f)
 for s in ["penticton", "naramata", "oliver"]:

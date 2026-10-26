@@ -1,8 +1,7 @@
-import json
 
 # Let's inspect the saved html or search them
-import urllib.request
 import ssl
+import urllib.request
 
 ctx = ssl.create_default_context()
 ctx.check_hostname = False

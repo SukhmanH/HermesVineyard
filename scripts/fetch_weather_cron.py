@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-import urllib.request
 import json
-import re
 import math
-import yaml
-from datetime import datetime, timezone
+import re
+import urllib.request
 import xml.etree.ElementTree as ET
+from datetime import UTC, datetime
+
+import yaml
+
 
 def fetch_weather():
     with open("config/settings.yaml") as f:
@@ -14,7 +16,7 @@ def fetch_weather():
     sites = settings.get("sites", [])
     wu_key = settings.get("weather_sources", {}).get("wunderground_api_key")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     print(f"Current UTC time: {now.isoformat()}")
 
     results = {}
@@ -23,7 +25,7 @@ def fetch_weather():
         key = site["key"]
         code = site["eccc_citypage"]
         pws = site.get("wunderground_pws")
-        
+
         # 1. Fetch ECCC XML
         found_xml = None
         pub_dt = None
@@ -53,15 +55,15 @@ def fetch_weather():
             continue
 
         root = ET.fromstring(found_xml)
-        
+
         # Parse xmlCreation
         # e.g. <dateTime name="xmlCreation" zone="UTC" UTCOffset="0"><year>2026</year><month name="October">10</month><day name="Sunday">18</day><hour>12</hour><minute>45</minute><timeStamp>20261018124500</timeStamp><textSummary>Sunday October 18 2026 12:45 UTC</textSummary></dateTime>
         creation_elem = root.find(".//dateTime[@name='xmlCreation']")
         if creation_elem is not None:
             ts_text = creation_elem.findtext("timeStamp")
             if ts_text:
-                pub_dt = datetime.strptime(ts_text, "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
-        
+                pub_dt = datetime.strptime(ts_text, "%Y%m%d%H%M%S").replace(tzinfo=UTC)
+
         if pub_dt:
             age_hours = (now - pub_dt).total_seconds() / 3600.0
         else:
@@ -126,7 +128,7 @@ def fetch_weather():
             eccc_ws = cc_elem.findtext("wind/speed")
             eccc_wg = cc_elem.findtext("wind/gust")
             eccc_wd = cc_elem.findtext("wind/direction")
-            
+
             if eccc_ws is not None:
                 if str(eccc_ws).strip().lower() == "calm":
                     ws_val = 0.0

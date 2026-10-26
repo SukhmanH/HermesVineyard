@@ -1,5 +1,5 @@
-import sys
 import json
+
 from vineyard_mcp import server
 
 compute_fn = getattr(server.compute_spray_window, "fn", server.compute_spray_window)
@@ -12,10 +12,10 @@ for site_key, site_data in data.items():
     if "error" in site_data:
         results[site_key] = site_data
         continue
-    
+
     hourly = site_data["hourly"]
     age_hours = site_data["age_hours"]
-    
+
     res = compute_fn(
         site=site_key,
         hourly=hourly,

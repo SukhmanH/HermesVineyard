@@ -1,10 +1,10 @@
-import sys
-import re
-import math
 import json
-import httpx
+import math
+import re
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+import httpx
 
 SITES = [
     {"key": "penticton", "code": "s0000772", "pws": "IPENTI39", "name": "Penticton (2 km)"},
@@ -15,7 +15,7 @@ SITES = [
 WU_API_KEY = "6532d6454b8aa370768e63d6ba5a832e"
 
 def fetch_eccc_forecast(site_code):
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     # Walk back 0, 1, 2, 3 hours
     for back in range(4):
         target_h = (now_utc.hour - back) % 24
@@ -32,13 +32,13 @@ def fetch_eccc_forecast(site_code):
                 resp_file = httpx.get(file_url, timeout=15.0, follow_redirects=True)
                 if resp_file.status_code == 200:
                     return resp_file.text
-        except Exception as e:
+        except Exception:
             continue
     return None
 
 def parse_eccc_xml(xml_text):
     root = ET.fromstring(xml_text)
-    
+
     # Check xmlCreation dateTime UTC
     age_hours = 0.5
     for dt in root.findall(".//dateTime"):
@@ -49,9 +49,9 @@ def parse_eccc_xml(xml_text):
                     pub_dt = datetime(
                         int(ts_str[0:4]), int(ts_str[4:6]), int(ts_str[6:8]),
                         int(ts_str[8:10]), int(ts_str[10:12]), int(ts_str[12:14]) if len(ts_str) >= 14 else 0,
-                        tzinfo=timezone.utc
+                        tzinfo=UTC
                     )
-                    now_utc = datetime.now(timezone.utc)
+                    now_utc = datetime.now(UTC)
                     age_hours = round((now_utc - pub_dt).total_seconds() / 3600.0, 2)
                 except Exception:
                     pass
@@ -80,7 +80,7 @@ def parse_eccc_xml(xml_text):
 
         temp_el = h.findtext("temperature")
         temp_c = float(temp_el) if temp_el else None
-        
+
         wind_sp = h.findtext("wind/speed")
         wind_kmh = 0.0
         if wind_sp:
@@ -91,17 +91,17 @@ def parse_eccc_xml(xml_text):
                     wind_kmh = float(wind_sp)
                 except ValueError:
                     wind_kmh = 0.0
-        
+
         wind_dir = h.findtext("wind/direction")
-        
+
         wind_gst = h.findtext("wind/gust")
         gust_kmh = float(wind_gst) if wind_gst and wind_gst.strip() else None
-        
+
         lop = h.findtext("lop")
         precip_prob_pct = float(lop) if lop else 0.0
-        
+
         condition = h.findtext("condition")
-        
+
         if iso_time:
             hourly.append({
                 "time": iso_time,
@@ -112,7 +112,7 @@ def parse_eccc_xml(xml_text):
                 "precip_prob_pct": precip_prob_pct,
                 "condition": condition
             })
-        
+
     # currentConditions from ECCC
     cc = root.find(".//currentConditions")
     cc_data = {}
@@ -177,7 +177,7 @@ def fetch_wu_current(station_id):
                 "wind_dir": obs.get("winddir"),
                 "epoch": obs.get("epoch")
             }
-    except Exception as e:
+    except Exception:
         return None
     return None
 
@@ -190,11 +190,11 @@ def main():
             results[key] = {"error": "Failed to fetch ECCC XML"}
             continue
         parsed = parse_eccc_xml(xml)
-        
+
         pws_obs = None
         if s["pws"]:
             pws_obs = fetch_wu_current(s["pws"])
-            
+
         results[key] = {
             "site": key,
             "station_name": s["name"],
@@ -203,7 +203,7 @@ def main():
             "pws_current": pws_obs,
             "age_hours": parsed["age_hours"]
         }
-        
+
     with open("/tmp/weather_fetch_result.json", "w") as f:
         json.dump(results, f)
     print("SUCCESS: Weather data fetched and saved to /tmp/weather_fetch_result.json")
