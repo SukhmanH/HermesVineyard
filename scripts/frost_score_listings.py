@@ -521,6 +521,11 @@ def confirm(conn, api: Api, cfg: dict, ref: str, now: datetime, *, candidate: in
     if row is None:
         return {"ok": False, "error": f"no frost row {ref!r}"}
     row = dict(row)
+    # Four owners get the same question. The first answer settles it; a second one must not
+    # resubmit over it while that score is on the way. (A scored row can still be corrected.)
+    if row["status"] in IN_FLIGHT:
+        return {"ok": False, "error": "that parcel question was already answered; "
+                                      "its score is on the way"}
     if reject:
         if row["status"] == "done":
             return {"ok": False, "error": "that listing is already scored"}

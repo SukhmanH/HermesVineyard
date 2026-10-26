@@ -198,16 +198,33 @@ def test_confirming_a_candidate_resubmits_it_confirmed(db, templates):
     api.jobs[row["api_job_id"]] = {"status": "needs_confirmation", "parcel": {
         "reasons": ["x"], "candidates": [{"index": 1, "pid": "011-333-596", "acres": 9.2}]}}
     fsl.run_cron(db, api, CFG, templates, NOW + timedelta(hours=2))
+    bad = fsl.confirm(db, api, CFG, f"F{row['id']}", NOW, location="https://maps.app.goo.gl/x")
+    assert not bad["ok"] and "location pin" in bad["error"]
     out = fsl.confirm(db, api, CFG, f"F{row['id']}", NOW, candidate=1)
     assert out["ok"] and api.sent[-1] == {"ref": "mls-9", "buffer_m": 1000, "confirmed": True,
                                           "listing_acres": 9.0, "pid": "011-333-596"}
     assert rows(db)[0]["status"] == "submitted" and rows(db)[0]["attempts"] == 2
-    loc = fsl.confirm(db, api, CFG, f"F{row['id']}", NOW, location="49.134041,-119.582336")
+    # Four owners got the same question: the first answer settles it, a later one cannot
+    # resubmit over it while that score is on the way.
+    sent = len(api.sent)
+    again = fsl.confirm(db, api, CFG, f"F{row['id']}", NOW, location="49.134041,-119.582336")
+    assert not again["ok"] and "already answered" in again["error"] and len(api.sent) == sent
+
+
+def test_a_location_or_a_no_answers_a_parcel_question(db, templates):
+    add_listing(db, "mls-7", address="4798 Okanagan Hwy, Oliver")
+    add_listing(db, "mls-8", address="12 Road 9, Oliver")
+    api = FakeApi()
+    fsl.run_cron(db, api, CFG, templates, NOW)
+    for r in rows(db):
+        api.jobs[r["api_job_id"]] = {"status": "needs_confirmation",
+                                     "parcel": {"reasons": ["x"], "candidates": []}}
+    fsl.run_cron(db, api, CFG, templates, NOW + timedelta(hours=2))
+    first, second = rows(db)
+    loc = fsl.confirm(db, api, CFG, f"F{first['id']}", NOW, location="49.134041,-119.582336")
     assert loc["ok"] and (api.sent[-1]["lat"], api.sent[-1]["lon"]) == (49.134041, -119.582336)
-    bad = fsl.confirm(db, api, CFG, f"F{row['id']}", NOW, location="https://maps.app.goo.gl/x")
-    assert not bad["ok"] and "location pin" in bad["error"]
-    no = fsl.confirm(db, api, CFG, f"F{row['id']}", NOW, reject=True)
-    assert no["ok"] and rows(db)[0]["status"] == "skipped"
+    no = fsl.confirm(db, api, CFG, f"F{second['id']}", NOW, reject=True)
+    assert no["ok"] and rows(db)[1]["status"] == "skipped"
 
 
 def test_a_corrected_parcel_supersedes_a_scored_row_instead_of_editing_it(db, templates):

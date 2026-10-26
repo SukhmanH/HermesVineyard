@@ -15,7 +15,6 @@ param(
     [string]$GrowerWa = $env:GROWER_WA,
     [string]$JobProvider = $env:HERMES_JOB_PROVIDER,
     [string]$JobModel = $env:HERMES_JOB_MODEL,
-    [string]$OwnerWa = $env:OWNER_WA,
     # Comma-separated job names: add just these to a host that already has the rest.
     # Re-running the whole script would create a second full set of jobs (docs/10).
     [string]$OnlyJobs = $env:ONLY_JOBS,
@@ -50,10 +49,6 @@ if ($CrewGroupJid) { $Group = "whatsapp:$CrewGroupJid" } else {
 if ($GrowerWa) { $GrowerDest = "whatsapp:$GrowerWa" } else {
     Write-Host "NOTE: GROWER_WA unset - grower_daily_report delivers to 'local'."
     $GrowerDest = "local"
-}
-if ($OwnerWa) { $OwnerDest = "whatsapp:$OwnerWa" } else {
-    Write-Host "NOTE: OWNER_WA unset - listings_frost delivers to 'local'."
-    $OwnerDest = "local"
 }
 $Only = @()
 if ($OnlyJobs) { $Only = @($OnlyJobs.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
@@ -121,8 +116,8 @@ J "every 30m" `
 # every 2h - frost scores for listings from the vineyard-terrain frost API (beside Hermes on
 # this host). Terminal python; execute_code is blocked in cron. Delivers to the owner's DM.
 J "every 2h" `
-  "Run the frost scoring for listings in the terminal: python scripts/frost_score_listings.py (python3 on Ubuntu; execute_code is blocked in cron). Read its JSON verdict. For each needs_confirmation item, decide whether to ask the owner now; its confirm_text is the message. For each newly scored listing, decide whether it is worth interrupting the owner for today rather than holding it for the 04:30 report, per the listings-frost skill, and log the call with log_decision either way. If api.notice is set, say it once. Nothing worth saying: call skip_job with your reasoning, then reply exactly [SILENT]." `
-  "listings_frost" $OwnerDest @("listings-frost")
+  "Run the frost scoring for listings in the terminal: python scripts/frost_score_listings.py (python3 on Ubuntu; execute_code is blocked in cron). Read its JSON verdict. For each needs_confirmation item, decide whether to ask the owners now; its confirm_text is the message. For each newly scored listing, decide whether it is worth interrupting the owners for today rather than holding it for the 04:30 report, per the listings-frost skill, and log the call with log_decision either way. If api.notice is set, say it once. Your final response is the message all four owners get (an emitter job per owner passes it on): write the message and nothing else. Nothing worth saying: call skip_job with your reasoning, then reply exactly [SILENT]." `
+  "listings_frost" "local" @("listings-frost")
 
 # Sun 18:00 - payroll support.
 J "0 18 * * 0" `

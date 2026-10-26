@@ -125,19 +125,13 @@ j "every 30m" \
   --name listings_poll --deliver local --skill listings-triage
 
 # every 2h — frost scores for listings, from the vineyard-terrain frost API (runs beside Hermes
-# on this host). Terminal python: execute_code is blocked in cron. Delivers to the owner's DM;
-# the final message is a parcel question, a listing worth a look, the once-per-outage notice,
-# or [SILENT].
-OWNER="${OWNER_WA:-}"
-if [ -z "$OWNER" ]; then
-  echo "NOTE: OWNER_WA unset - listings_frost will deliver to 'local' instead of a DM."
-  OWNER_DEST="local"
-else
-  OWNER_DEST="whatsapp:${OWNER}"
-fi
+# on this host). Terminal python: execute_code is blocked in cron. Composes ONCE and delivers
+# locally: its final message (a parcel question, a listing worth a look, the once-per-outage
+# notice, or [SILENT]) reaches the four owners through one emit_listings_frost_<owner> job each,
+# which this script does not create (see the listings-frost skill, "Who gets your message").
 j "every 2h" \
-  "Run the frost scoring for listings in the terminal: python scripts/frost_score_listings.py (python3 on Ubuntu; execute_code is blocked in cron). Read its JSON verdict. For each needs_confirmation item, decide whether to ask the owner now; its confirm_text is the message. For each newly scored listing, decide whether it is worth interrupting the owner for today rather than holding it for the 04:30 report, per the listings-frost skill, and log the call with log_decision either way. If api.notice is set, say it once. Nothing worth saying: call skip_job with your reasoning, then reply exactly [SILENT]." \
-  --name listings_frost --deliver "$OWNER_DEST" --skill listings-frost
+  "Run the frost scoring for listings in the terminal: python scripts/frost_score_listings.py (python3 on Ubuntu; execute_code is blocked in cron). Read its JSON verdict. For each needs_confirmation item, decide whether to ask the owners now; its confirm_text is the message. For each newly scored listing, decide whether it is worth interrupting the owners for today rather than holding it for the 04:30 report, per the listings-frost skill, and log the call with log_decision either way. If api.notice is set, say it once. Your final response is the message all four owners get (an emitter job per owner passes it on): write the message and nothing else. Nothing worth saying: call skip_job with your reasoning, then reply exactly [SILENT]." \
+  --name listings_frost --deliver local --skill listings-frost
 
 # Sun 18:00 — payroll support.
 j "0 18 * * 0" \
