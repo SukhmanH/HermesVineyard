@@ -70,11 +70,13 @@ it; never drop them when you paraphrase.
 
 ## Who gets your message
 
-Your final response IS the message, and it goes to all four owners. A cron job delivers to one
+Your final response IS the message, and it goes to all five owners. A cron job delivers to one
 target and Hermes tells every run not to send anything itself, so this job delivers locally and
 one `--no-agent` job per owner passes the same text on (`~/.hermes/scripts/emit_listings_frost.sh`,
 source `scripts/hermes/` in the repo): Sukhman, Harpreet and Waris get it as written, and
-Baljit's job renders it in Punjabi. Composing once keeps all four reading the same thing.
+Baljit's and Harjit's jobs render it in Punjabi. Composing once keeps everyone reading the same
+thing. Harjit is the owners' real-estate lead: listings matter most to him, and he also gets the
+daily listings table in Punjabi.
 
 - Write the message and nothing else: no preamble, no account of what you ran. The emitter drops
   anything over 6 KB as narration, so a reasoning dump means nobody hears about the listing.
