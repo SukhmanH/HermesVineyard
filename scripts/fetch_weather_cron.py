@@ -64,10 +64,7 @@ def fetch_weather():
             if ts_text:
                 pub_dt = datetime.strptime(ts_text, "%Y%m%d%H%M%S").replace(tzinfo=UTC)
 
-        if pub_dt:
-            age_hours = (now - pub_dt).total_seconds() / 3600.0
-        else:
-            age_hours = 0.5
+        age_hours = (now - pub_dt).total_seconds() / 3600.0 if pub_dt else 0.5
 
         # Parse hourly forecasts
         hourly = []

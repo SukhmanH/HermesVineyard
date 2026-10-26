@@ -1,3 +1,4 @@
+import contextlib
 import json
 import math
 import re
@@ -134,10 +135,8 @@ def parse_eccc_xml(xml_text):
         cc_wind_gst = cc.findtext("wind/gust")
         cc_wind_gst_val = None
         if cc_wind_gst and cc_wind_gst.strip():
-            try:
+            with contextlib.suppress(ValueError):
                 cc_wind_gst_val = float(cc_wind_gst)
-            except ValueError:
-                pass
 
         cc_dewpt = cc.findtext("dewpoint")
         cc_dewpt_val = float(cc_dewpt) if cc_dewpt else None

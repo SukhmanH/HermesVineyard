@@ -12,7 +12,7 @@ for s in ["penticton", "naramata", "oliver"]:
     times = [h["time"] for h in d["hourly"]]
     print(f"Temps count: {len(temps)}")
     print(f"Min temp next 24h: {min(temps) if temps else 'N/A'}")
-    print(f"First 12 hours: {list(zip(times[:12], temps[:12]))}")
+    print(f"First 12 hours: {list(zip(times[:12], temps[:12], strict=False))}")
     print(f"PWS Current: {d.get('pws_current')}")
     print(f"ECCC Current: {d.get('eccc_current')}")
 

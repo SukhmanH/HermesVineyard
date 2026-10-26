@@ -27,7 +27,7 @@ full_state = {
     "cost_share": "100%",
     "deadline": "2026-10-31",
     "days_remaining": 19,
-    "confirmed_live_2026-10-12": true,
+    "confirmed_live_2026-10-12": True,
     "project": {
       "block": "Rust (Oliver bench) / portfolio perimeter",
       "acres": 12.0,
