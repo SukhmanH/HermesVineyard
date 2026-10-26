@@ -1,0 +1,9 @@
+{
+  "block_name": "EXAMPLE ONLY — not a measured property record",
+  "sampled_on": "2026-09-16",
+  "bearing_vines": 1000,
+  "clusters_per_sampled_vine": [20, 30, 10],
+  "harvest_cluster_weight_g": {"low": 100, "expected": 150, "high": 200},
+  "weight_basis": "Synthetic demonstration. Replace with your block's expected harvest weights.",
+  "bin_payload_kg": 400
+}
