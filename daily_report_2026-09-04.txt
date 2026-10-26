@@ -1,0 +1,89 @@
+🌤️ WEATHER
+
+Penticton: 16°C / — wind 5 km/h, 14:00–16:00 window (3h), YES — ECCC, updated 05:40 yesterday. (Penticton s0000772 · IPENTI39)
+
+Naramata: 19°C / — wind 5 km/h, 10:00–16:00 window (7h), YES — ECCC, updated 05:40 yesterday. (Summerland, 6 km · IBCNARAM1)
+
+Oliver: NO window — wind too high this afternoon (6h wind too high, 6h wind too calm) — ECCC, updated 05:40 yesterday. (Osoyoos, 18 km south · s0000397)
+
+Now: current conditions deferred; PWS/ECCC not fetched this cycle. Cool temps 16–19°C favour mildew-friendly air.
+
+🧪 SPRAY
+
+Penticton: YES window today 14:00–16:00 (3h), wind 5 km/h, 16°C. No cover on file.
+
+Naramata: YES window today 10:00–16:00 (7h), wind 5 km/h, 19°C. No cover on file.
+
+Oliver: NO window today — wind too high. No cover on file.
+
+Cover: all six properties at 0 days — no sprays on file.
+
+Candidates: none applicable (no verified products in use).
+
+Next window outlook: beyond ~24h — cached forecast age ~24h; fresh fetch needed for tomorrow's verdict. Not a computed verdict.
+
+🌡️ MILDEW PRESSURE
+
+not set up (no hourly array accessed).
+
+💧 WATER BALANCE
+
+not set up (no ET0/rain data).
+
+📅 PHI COUNTDOWNS
+
+no harvest dates registered.
+
+🟢 ACTIVE RESTRICTED ENTRY INTERVALS
+
+No records.
+
+📋 WORK BY PROPERTY
+
+Upper Bench: no task logs.
+
+Naramata: no task logs.
+
+Rust: no task logs.
+
+Tucelnuit: no task logs.
+
+Hwy 97: no task logs.
+
+Cassini: no task logs.
+
+Task cadence: no data (no task logs registered across any block).
+
+👀 WHAT TO WATCH TODAY
+
+Frost risk: outside frost window (Mar 1–May 31, Sep 15–Nov 15).
+
+Crew heat-stress: no sites above 30°C (forecast maxes 16–19°C).
+
+Washoff risk: no yesterday's sprays logged.
+
+Seasonal equipment: sprayer calibration (if first cover planned), wind-machine test (in-window), netting check (bunch close — in window).
+
+Unverified-product nag: no unverified products in use.
+
+📍 NEW LISTINGS SINCE YESTERDAY
+
+1970 Sutherland Road, Penticton — $799,000 (MLS 10398690)
+
+https://www.realtor.ca/real-estate/30196017/1970-sutherland-road-penticton-penticton-rural
+
+294 ROAD 18 Road Oliver, BC — $1,299,900 (MLS 10398703)
+
+294 ROAD 18 Road Oliver, BC — $1,299,900 (MLS 10398702)
+
+156 Porcupine Place Oliver, BC — $849,000 (MLS 10399093)
+
+156 Porcupine Place Oliver, BC — $849,000 (MLS 10399091)
+
+🔔 GRANTS & WATER NOTICES
+
+No changes since last scan. Grants-watch cron notepad: no new openings, deadlines inside 30 days, or prerequisite gaps.
+
+✅ DECISIONS TODAY
+
+Checked fresh cached forecasts per procedure; reused cache ~23.9h old for all three sites; no re-fetches needed. Spray verdicts computed via compute_spray_window kernel; cached with verdict. No discretionary decisions requiring log.

@@ -1,0 +1,98 @@
+🧪 SPRAY
+
+Penticton: YES window today 06:00–13:00 (8h), wind max 15 km/h, max temp 20 °C.
+
+Naramata: YES window today 06:00–13:00 (8h), wind max 15 km/h, max temp 20 °C.
+
+Oliver: YES window today 06:00–13:00 (8h), wind max 15 km/h, max temp 20 °C.
+
+Cover: all six properties at 0 days — no sprays on file.
+
+Candidates: Kumulus DF / Microthiol Disperss (M2), Quintec (13) — unverified.
+
+Next window outlook: beyond ~24h — calm morning windows continue Mon–Tue; regional outlook, not a computed verdict.
+
+🌡️ MILDEW PRESSURE
+
+Penticton: Score 12 / LOW (optimal temp: 4h, wet: 0h). Standard 10–14 day interval holds.
+(ECCC proxy · no leaf-wetness sensor)
+
+Naramata: Score 12 / LOW (optimal temp: 4h, wet: 0h). Standard 10–14 day interval holds.
+(ECCC proxy · no leaf-wetness sensor)
+
+Oliver: Score 12 / LOW (optimal temp: 4h, wet: 0h). Standard 10–14 day interval holds.
+(ECCC proxy · no leaf-wetness sensor)
+
+💧 WATER BALANCE & IRRIGATION
+
+Daily ET0: 3.1 mm · Crop use (Kc 0.6): 1.9 mm/day (~13.3 mm/week) · Rain: 0.0 mm.
+
+Deficit: 1.9 mm/day (~7,700 L / 2,000 gal per acre/day).
+
+Watering suggestion: 4–6 hour drip cycle every 3–4 days (or 1.5–2 hr daily pulse) to match weekly demand.
+
+Ripening note: veraison / cluster development active; keep sets moderate to protect Brix accumulation without stressing canopy.
+
+📅 PRE-HARVEST INTERVALS
+
+no harvest dates registered.
+
+🌤️ WEATHER
+
+Penticton: 20°/12°, wind 15 km/h S, rain 0%. Now 16 °C.
+(Penticton s0000772 · IPENTI39)
+
+Naramata: 20°/12°, wind 15 km/h S, rain 0%. Now 16 °C.
+(Summerland, 6 km · s0000351 · IBCNARAM1)
+
+Oliver: 20°/11°, wind 15 km/h S, rain 0%. Now 16 °C.
+(Osoyoos, 18 km south · s0000397)
+
+🟢 ACTIVE RESTRICTED ENTRY INTERVALS
+
+No records.
+
+📋 WORK BY PROPERTY
+
+Upper Bench: no task logs.
+
+Naramata: no task logs.
+
+Rust: no task logs.
+
+Tucelnuit: no task logs.
+
+Hwy 97: no task logs.
+
+Cassini: no task logs.
+
+Task cadence: no data.
+
+👀 WHAT TO WATCH TODAY
+
+Frost risk: outside frost window (Mar 1–May 31, Sep 15–Nov 15).
+
+Crew heat-stress: no sites above 30 °C (forecast maxes ≤20 °C).
+
+Washoff risk: no yesterday's sprays logged.
+
+Seasonal equipment: sprayer calibration before first cover; wind-machine test before Sep 15 (in-window); netting check by bunch close (in-window).
+
+Unverified-product nag: 43 products in shed remain unverified against physical labels.
+
+📍 NEW LISTINGS SINCE YESTERDAY
+
+1970 Sutherland Road, Penticton — $799,000 (MLS 10398690)
+https://www.realtor.ca/real-estate/30196017/1970-sutherland-road-penticton-penticton-rural
+
+294 ROAD 18 Road Oliver, BC — $1,299,900 (MLS 10398703)
+
+156 Porcupine Place Oliver, BC — $849,000 (MLS 10399093)
+
+🔔 GRANTS & WATER NOTICES
+
+No changes since last scan. Grants-watch: no new openings, deadlines inside 30 days, or prerequisite gaps.
+
+✅ DECISIONS TODAY
+
+Reused fresh weather cache; spray verdicts computed via kernel. No discretionary decisions requiring log.

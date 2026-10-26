@@ -44,7 +44,11 @@ def test_hours_cli_exports_current_individual_values_and_gaps(db, juan, tmp_path
 
 
 def test_legacy_schema_exports_missing_not_inferred(db, juan, tmp_path, monkeypatch):
-    from tools import build_exports as exports
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("build_exports", Path(__file__).resolve().parent.parent / "tools/build_exports.py")
+    assert spec and spec.loader
+    exports = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(exports)
     commit(db, juan, draft_task_log(db, juan, {
         "task_type": "poda", "log_date": "2026-09-01", "hours_total": 8}, "fixture"))
     db.execute("ALTER TABLE task_workers DROP COLUMN hours")
