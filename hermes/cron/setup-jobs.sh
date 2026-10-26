@@ -123,6 +123,12 @@ j "30 21 * * *" \
 j "every 30m" \
   "Read the listings inbox, extract and dedupe real listings, and decide whether anything is worth interrupting the owner for today rather than holding for the EOD digest. Default to the digest. Use your cron notepad to remember MLS numbers already seen across runs. Nothing new: [SILENT]." \
   --name listings_poll --deliver local --skill listings-triage
+# Daily 08:00, no LLM: the table of every listing shown so far, with days on market and the
+# last 24 hours' additions (scripts/listings_table.py; CSV at data/listings_shown.csv). One
+# emit_listings_table_<owner> job per owner, which this script does not create:
+#   cp scripts/hermes/emit_listings_table.sh ~/.hermes/scripts/
+#   hermes cron create "0 8 * * *" --name emit_listings_table_<owner> \
+#     --deliver "whatsapp:<owner's chat id>" --no-agent --script emit_listings_table.sh
 
 # every 2h — frost scores for listings, from the vineyard-terrain frost API (runs beside Hermes
 # on this host). Terminal python: execute_code is blocked in cron. Composes ONCE and delivers

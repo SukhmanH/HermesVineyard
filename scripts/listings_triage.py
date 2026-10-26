@@ -242,15 +242,29 @@ def split_listings(text: str) -> list[tuple[str | None, str]]:
 
 
 def listing_urls(raw_bytes: bytes | None) -> list[str]:
-    """Listing hrefs in document order, deduped."""
+    """Listing hrefs in document order, deduped.
+
+    Read from the decoded parts, not the raw bytes: REALTOR.ca alerts are quoted-printable, so
+    the raw message says `href=3D"...` and a raw-bytes search found no URL in any of them.
+    The query string goes: it carries `euid`, a token for the owner's REALTOR.ca account, and
+    the URLs end up in WhatsApp messages and a CSV.
+    """
     if not raw_bytes:
         return []
-    blob = raw_bytes.decode("latin-1")
+    msg = email.message_from_bytes(raw_bytes)
+    blob = "\n".join(
+        (part.get_payload(decode=True) or b"").decode(part.get_content_charset() or "utf-8",
+                                                      "replace")
+        for part in (msg.walk() if msg.is_multipart() else [msg])
+        if part.get_content_type() == "text/html"
+    )
     found: list[str] = []
     for match in re.finditer(
         r'href=["\']([^"\']*(?:realtor\.ca/real-estate/|zealty\.ca/)[^"\']*)["\']', blob, re.I
     ):
         url = match.group(1).replace("&amp;", "&")
+        if "realtor.ca/real-estate/" in url.lower():
+            url = url.split("?", 1)[0]
         if url not in found:
             found.append(url)
     return found

@@ -72,6 +72,21 @@ class TestMultiListingEmails:
         assert len(lt.parse_listings(msg, raw, HUNT)) == 1
 
 
+class TestListingUrls:
+    def test_quoted_printable_alert_yields_the_listing_url(self):
+        """Real REALTOR.ca alerts are QP-encoded (`href=3D"`); a raw-bytes search found none."""
+        raw = (
+            b"From: noreply@notifications.realtor.ca\r\nSubject: New listing\r\n"
+            b"Content-Type: text/html; charset=utf-8\r\n"
+            b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+            b'<a href=3D"https://www.realtor.ca/real-estate/30429568/398-upper-bench-roa=\r\n'
+            b'd-s-penticton?SavedSearchName=3DX&amp;euid=3DSECRET">View Listing</a>'
+        )
+        assert lt.listing_urls(raw) == [
+            "https://www.realtor.ca/real-estate/30429568/398-upper-bench-road-s-penticton"
+        ]
+
+
 class TestParsing:
     def test_address_survives_adjacent_mls_and_bed_bath_metadata(self):
         """MLS numbers and '3 Bedroom' both lead with digits and were eaten as street numbers."""
