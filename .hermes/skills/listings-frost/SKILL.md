@@ -62,8 +62,9 @@ it; never drop them when you paraphrase.
   without saying so.
 - `buffer_inadequate` or `upslope_nodata`: cold air may drain onto the parcel from ground the
   analysis could not see; the real risk can be higher.
-- `weak_floor`: off the valley-floor table (Keremeos and the Similkameen, some high benches) the
-  valley floor was found from the surrounding ground with low confidence.
+- `weak_floor`: away from the valley-floor tables (the Okanagan and lower Similkameen floors), in
+  side valleys and on some high benches, the valley floor was found from the surrounding ground
+  with low confidence.
 - `multi_pid`: several parcels the owner confirmed, scored as one unit.
 - `aoi_resampled_2m`: a very large context area was analysed at 2 m.
 
