@@ -75,6 +75,31 @@ listings:
     Summerland: 1000000
     Keremeos: 800000
 
+# ── Frost scores for listings (scripts/frost_score_listings.py) ──────────────
+# The vineyard-terrain frost API scores each listing's parcel for spring/fall frost risk from
+# terrain. It runs beside Hermes on the same host (the vineyard box, tailnet address below);
+# Hermes only talks to it over HTTP. The token lives in .env as FROST_API_TOKEN.
+frost_api:
+  base_url: http://100.71.243.94:8000
+  timeout_s: 20              # per request
+  run_budget_s: 60           # one cron run never waits longer than this in total
+  buffer_m: 750              # context ring around a parcel (the API widens it when needed)
+  max_submit_per_run: 5
+  retry_after_hours: 12      # a failed job is retried after this ...
+  max_attempts: 3            # ... this many times in all
+  down_notice_hours: 24      # the API unreachable this long: say so once, then not again
+  ranking_active_days: 180   # listings first seen within this window are "active"
+  # The owner's six properties, scored as reference rows so listing scores have a scale.
+  # Parcels confirmed by the owner 2026-10-26 (Hwy 97 is the 10.76 ac vineyard parcel next to
+  # the 4152 address lot; Cassini is the parcel 5 m from its map pin).
+  reference_properties:
+    - {code: UB,   name: Upper Bench, pid: "004-209-923"}
+    - {code: NAR,  name: Naramata,    pid: "012-389-030"}
+    - {code: RUST, name: Rust,        pid: "009-426-655"}
+    - {code: TUC,  name: Tucelnuit,   pid: "010-608-974"}
+    - {code: H97,  name: Hwy 97,      pid: "001-550-233"}
+    - {code: CAS,  name: Cassini,     pid: "011-333-596"}
+
 safety:
   emergency_keywords: [emergencia, accidente, ayuda urgente, "911", "ਮਦਦ"]
 

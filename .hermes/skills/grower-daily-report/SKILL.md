@@ -176,6 +176,13 @@ The grower reads this in two minutes, once a day, before deciding anything.
 
   If a row's `url` is null, say the listing and give the MLS number without inventing a link or
   guessing at a search URL — a wrong link wastes more of the grower's time than no link.
+
+  **Rank them by frost.** Run `python scripts/frost_score_listings.py --ranking --top 5` in the
+  terminal and use its lines as they are: one line per listing with its spring/fall frost risk
+  (terrain) score, frost-safe acres and price per frost-safe acre, the listing URL on the next
+  line, then the map link, and a scale line of our own properties. If it reports `not_migrated`
+  or the frost API is down, list the listings as above and say frost scores are pending. What
+  the numbers mean, and do not mean, is in `/listings-frost`.
 - **Grants & water notices** — read the `grants_watch` cron notepad state: funding changes AND
   Okanagan drought-level / water-restriction notices (same weekly scan). Only changes, new
   deadlines inside 30 days with days remaining, or prerequisite gaps (no current EFP number).

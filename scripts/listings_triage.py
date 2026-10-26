@@ -206,6 +206,7 @@ _MLS_RE = re.compile(r"MLS\s*(?:®|\(R\))?\s*(?:Number|No\.?|#)?\s*:?\s*([0-9]{6
 # number and the "3 Bedroom 2 Bathroom 1,800 Square Feet" run both lead with digits, which is
 # exactly what a street number looks like.
 _ADDR_NOISE = re.compile(r"\d[\d,]*\s*(?:Bed\w*|Bath\w*|Square Feet|sq\.?\s*ft)", re.I)
+_PRICE_NOISE = re.compile(r"\$\s?[0-9][0-9,]*(?:\.[0-9]+)?(?:\s*[KM]\b)?", re.I)
 _ADDRESS_RE = re.compile(
     r"(\d{1,6}\s+[A-Z0-9][A-Za-z0-9 .'\-]*?"
     r"(?:Road|Rd|Street|St|Avenue|Ave|Drive|Dr|Lane|Ln|Crescent|Cres|Way|Circle|Court|Ct|Pass|"
@@ -214,6 +215,9 @@ _ADDRESS_RE = re.compile(
 )
 _BROKERS = ["RE/MAX", "REMAX", "Royal LePage", "Century 21", "Sutton", "Coldwell Banker",
             "eXp", "Keller Williams", "2Percent", "Stonehaus", "Chamberlain", "Parker"]
+# BC Parcel Identifier, e.g. "PID: 012-525-499" or "PID 012525499". Kept because the frost
+# API can take a PID directly, which beats geocoding an address.
+_PID_RE = re.compile(r"\bPID\b[^0-9]{0,6}(\d{3})-?(\d{3})-?(\d{3})\b", re.I)
 
 
 def split_listings(text: str) -> list[tuple[str | None, str]]:
@@ -316,18 +320,29 @@ def parse_segment(mls: str | None, seg: str, subject: str, hunt: dict) -> dict:
         re.search(r"\b" + re.escape(k.lower()) + r"\b", low) for k in hunt["keywords"]
     )
 
+    # The street address on its own, kept apart from the title: the title may be a subject
+    # line, and only an address is worth geocoding.
+    address = None
+    addr_text = seg.replace(mls, " ", 1) if mls else seg
+    # a price or PID right before the street number ("$1,299,900 294 ...") reads as part of it
+    addr_text = _PID_RE.sub(" ", _PRICE_NOISE.sub(" ", _ADDR_NOISE.sub(" ", addr_text)))
+    am2 = _ADDRESS_RE.search(addr_text)
+    if am2:
+        address = re.sub(r"\s+", " ", am2.group(1)).strip().rstrip(",")
+
     title = None
     sm = re.search(r"-\s*\d+\s*beds?/\d+\s*baths?\s*-\s*(.+)$", subject, re.I)
     if sm:
         title = sm.group(1).replace("\r", " ").replace("\n", " ").strip().rstrip(",")
+        if address is None and _ADDRESS_RE.search(title):
+            address = title
     if not title:
-        addr_text = seg.replace(mls, " ", 1) if mls else seg
-        addr_text = _ADDR_NOISE.sub(" ", addr_text)
-        am2 = _ADDRESS_RE.search(addr_text)
-        if am2:
-            title = re.sub(r"\s+", " ", am2.group(1)).strip().rstrip(",")
+        title = address
     if not title:
         title = subject.strip() or "(untitled listing)"
+
+    pid_m = _PID_RE.search(seg)
+    pid = "-".join(pid_m.groups()) if pid_m else None
 
     broker = None
     if mls:
@@ -352,6 +367,7 @@ def parse_segment(mls: str | None, seg: str, subject: str, hunt: dict) -> dict:
         "baths": int(baths.group(1)) if baths else None,
         "sqft": int(sqft.group(1).replace(",", "")) if sqft else None,
         "acres": acres, "area": area, "keyword_hit": keyword_hit, "title": title,
+        "address": address, "pid": pid,
         "broker": broker, "url": None, "dedupe_key": dedupe_key, "subject": subject,
     }
 
@@ -437,26 +453,34 @@ def prune_seen(seen: dict, cap: int = SEEN_KEYS_MAX) -> tuple[dict, int]:
 def db_write(listing: dict, tier: str, uid) -> str:
     if not os.path.exists(DB_PATH):
         return f"no-db({DB_PATH})"
+    cols = ["dedupe_key", "mls_number", "source", "title", "price", "acres", "address", "area",
+            "url", "first_seen_utc", "raw_email_uid", "notified", "pid"]
+    vals = [listing["dedupe_key"], listing["mls"], listing.get("source", "mls-email"),
+            listing["title"], listing["price"], listing["acres"], listing.get("address"),
+            listing["area"], listing["url"], datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            str(uid), 1 if tier == "interrupt" else 0, listing.get("pid")]
     try:
         conn = sqlite3.connect(DB_PATH, timeout=10)
         try:
-            conn.execute(
-                """INSERT OR IGNORE INTO listings
-                   (dedupe_key, mls_number, source, title, price, acres, address, area, url,
-                    first_seen_utc, raw_email_uid, notified)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (listing["dedupe_key"], listing["mls"], listing.get("source", "mls-email"),
-                 listing["title"], listing["price"], listing["acres"], listing["title"],
-                 listing["area"], listing["url"],
-                 datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), str(uid),
-                 1 if tier == "interrupt" else 0),
-            )
+            try:
+                _insert_listing(conn, cols, vals)
+            except sqlite3.OperationalError as exc:
+                # A database not yet at schema v8 has no listings.pid. Ingest must not stop
+                # on that: store the listing without its PID until init-db migrates it.
+                if "no column named pid" not in str(exc):
+                    raise
+                _insert_listing(conn, cols[:-1], vals[:-1])
             conn.commit()
         finally:
             conn.close()
         return "ok"
     except Exception as exc:
         return f"err:{exc}"
+
+
+def _insert_listing(conn, cols: list[str], vals: list) -> None:
+    conn.execute(f"INSERT OR IGNORE INTO listings ({', '.join(cols)}) "
+                 f"VALUES ({', '.join('?' * len(cols))})", vals)
 
 
 # ----------------------------------------------------------------------------- fetch

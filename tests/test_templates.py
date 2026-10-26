@@ -7,6 +7,8 @@ the warning, and nobody finds out until someone walks into a treated block.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 import yaml
 
@@ -113,6 +115,29 @@ def test_check_catches_a_deleted_safety_message(tmp_path, monkeypatch):
     monkeypatch.setattr(T, "TEMPLATE_DIR", tmp_path)
     problems = T.check()
     assert any("SAFETY" in p and "rei_alert" in p for p in problems)
+
+
+def _strings(node):
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, dict):
+        for v in node.values():
+            yield from _strings(v)
+
+
+def test_frost_strings_say_relative_terrain_risk_and_nothing_more():
+    """The frost API ranks terrain; it never gives a temperature and never says ground will
+    not frost. vineyard-terrain's rules also bar em dashes from its generated text."""
+    frost = load("en")["frost"]
+    assert frost["label"] == "spring/fall frost risk (terrain)"
+    assert "spring/fall frost risk (terrain)" in frost["ranking_header"]
+    for s in _strings(frost):
+        low = s.lower()
+        assert "—" not in s, s
+        assert "°" not in s and "celsius" not in low, s
+        assert "frost free" not in low and "frost-free" not in low, s
+        assert "will not frost" not in low, s
+        assert not re.search(r"\bno frost\b(?![-\w])", low), s   # "no frost-safe ac" is fine
 
 
 def test_no_placeholder_is_left_as_a_bare_todo():

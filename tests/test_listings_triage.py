@@ -8,6 +8,7 @@ reading it.
 from __future__ import annotations
 
 import email
+import os
 import sys
 from pathlib import Path
 
@@ -108,6 +109,60 @@ class TestParsing:
     def test_hectares_are_converted_to_acres(self):
         msg, raw = msg_of("New", "<p>MLS# 10444444 Oliver BC 4 hectares</p>")
         assert lt.parse_listings(msg, raw, HUNT)[0]["acres"] == pytest.approx(9.884, abs=0.01)
+
+
+class TestAddressAndPid:
+    """The frost API takes structured fields only: a PID when the email has one, and the
+    street address, never the title (which can be a subject line)."""
+
+    @pytest.mark.parametrize("text, pid", [
+        ("PID: 012-525-499", "012-525-499"),
+        ("PID 012525499", "012-525-499"),
+        ("P.I.D. none listed", None),
+        ("MLS# 10398703 only", None),
+    ])
+    def test_pid_is_captured_and_normalised(self, text, pid):
+        msg, raw = msg_of("New", f"<p>MLS# 10398703 {text} 294 ROAD 18 Road, Oliver, BC</p>")
+        assert lt.parse_listings(msg, raw, HUNT)[0]["pid"] == pid
+
+    def test_the_street_address_is_kept_apart_from_a_subject_title(self):
+        subject = "New listing - 3 beds/2 baths - Gorgeous vineyard estate"
+        msg, raw = msg_of(subject, "<p>MLS# 10398703 $1,299,900 294 ROAD 18 Road, Oliver, BC</p>")
+        out = lt.parse_listings(msg, raw, HUNT)[0]
+        assert out["title"] == "Gorgeous vineyard estate"
+        assert out["address"] == "294 ROAD 18 Road, Oliver, BC"
+
+    def test_a_subject_that_is_an_address_is_the_address(self):
+        subject = "New listing - 3 beds/2 baths - 294 ROAD 18 Road, Oliver"
+        msg, raw = msg_of(subject, "<p>MLS# 10398703 $1,299,900</p>")
+        out = lt.parse_listings(msg, raw, HUNT)[0]
+        assert out["address"] == out["title"] == "294 ROAD 18 Road, Oliver"
+
+    def test_no_address_stays_none_rather_than_copying_the_title(self):
+        msg, raw = msg_of("Acreage alert", "<p>MLS# 10398703 $900,000 vineyard Oliver</p>")
+        out = lt.parse_listings(msg, raw, HUNT)[0]
+        assert out["address"] is None and out["title"] == "Acreage alert"
+
+    def _listing(self):
+        msg, raw = msg_of("New", "<p>MLS# 10398703 PID 012-525-499 $1,299,900 "
+                                 "294 ROAD 18 Road, Oliver, BC 9.5 acres</p>")
+        return lt.parse_listings(msg, raw, HUNT)[0]
+
+    def test_db_write_stores_the_address_and_pid(self, db, monkeypatch):
+        monkeypatch.setattr(lt, "DB_PATH", os.environ["DB_PATH"])
+        assert lt.db_write(self._listing(), "digest", 7) == "ok"
+        row = db.execute("SELECT address, pid, title FROM listings").fetchone()
+        assert tuple(row) == ("294 ROAD 18 Road, Oliver, BC", "012-525-499",
+                              "294 ROAD 18 Road, Oliver, BC")
+
+    def test_db_write_still_ingests_into_a_database_without_the_pid_column(self, db,
+                                                                         monkeypatch):
+        db.execute("DROP VIEW listing_frost_current")
+        db.execute("ALTER TABLE listings DROP COLUMN pid")
+        monkeypatch.setattr(lt, "DB_PATH", os.environ["DB_PATH"])
+        assert lt.db_write(self._listing(), "digest", 7) == "ok"
+        assert db.execute("SELECT address FROM listings").fetchone()[0] == \
+            "294 ROAD 18 Road, Oliver, BC"
 
 
 class TestMoneyAndClassify:

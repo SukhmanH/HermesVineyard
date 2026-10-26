@@ -16,7 +16,7 @@ from typing import Any
 
 from .config import REPO_ROOT, get_settings
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 SCHEMA_PATH = REPO_ROOT / "schema.sql"
 
 
@@ -88,6 +88,61 @@ def init_db(conn: sqlite3.Connection) -> bool:
 # a migration that loses data is indistinguishable from the append-only violation the triggers
 # exist to prevent.
 MIGRATIONS: dict[int, list[str]] = {
+    8: [
+        # Frost scores for listings, from the vineyard-terrain frost API
+        # (scripts/frost_score_listings.py). listings.pid holds a PID when the listing email
+        # carries one; it is a structured field the frost API can take directly.
+        "ALTER TABLE listings ADD COLUMN pid TEXT",
+        # One row per listing and model version. dedupe_key is listings.dedupe_key, or
+        # 'property:<block code>' for the owner's six properties scored as reference rows,
+        # so it carries no foreign key. A row moves through the API's statuses until it is
+        # scored; from then on it is history (trigger below) and a corrected parcel inserts
+        # a row that supersedes it, as corrections do elsewhere in this schema.
+        """CREATE TABLE IF NOT EXISTS listing_frost (
+             id                  INTEGER PRIMARY KEY,
+             dedupe_key          TEXT NOT NULL,
+             model_version       TEXT NOT NULL,
+             status              TEXT NOT NULL CHECK (status IN ('submitted','queued',
+                                   'resolving','needs_confirmation','fetching','analyzing',
+                                   'done','failed','skipped')),
+             pid                 TEXT,
+             parcel_source       TEXT,
+             parcel_confidence   TEXT,
+             parcel_acres        REAL,
+             listing_acres       REAL,
+             api_job_id          TEXT,
+             frost_score         REAL,
+             frost_safe_acres    REAL,
+             largest_contiguous_safe_acres REAL,
+             pct_high_risk       REAL,
+             frost_risk_mean     REAL,
+             coverage_pct        REAL,
+             drivers_json        TEXT,
+             flags_json          TEXT,
+             confidence          TEXT,
+             map_url             TEXT,
+             scored_at_utc       TEXT,
+             error               TEXT,
+             candidates_json     TEXT,
+             attempts            INTEGER NOT NULL DEFAULT 0,
+             supersedes_id       INTEGER REFERENCES listing_frost(id),
+             created_at_utc      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+             updated_at_utc      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+           )""",
+        "CREATE INDEX IF NOT EXISTS idx_listing_frost_key "
+        "ON listing_frost (dedupe_key, model_version)",
+        """CREATE TRIGGER IF NOT EXISTS trg_listing_frost_scored_is_history
+           BEFORE UPDATE ON listing_frost FOR EACH ROW WHEN OLD.status = 'done'
+           BEGIN SELECT RAISE(ABORT,
+             'listing_frost: a scored row is history; insert a row that supersedes it');
+           END""",
+        """CREATE TRIGGER IF NOT EXISTS trg_listing_frost_no_delete
+           BEFORE DELETE ON listing_frost
+           BEGIN SELECT RAISE(ABORT, 'listing_frost is append-only'); END""",
+        """CREATE VIEW IF NOT EXISTS listing_frost_current AS
+             SELECT * FROM listing_frost f
+             WHERE NOT EXISTS (SELECT 1 FROM listing_frost s WHERE s.supersedes_id = f.id)""",
+    ],
     7: [
         # NULL retains the distinction between unknown and confirmed individual hours.
         "ALTER TABLE task_workers ADD COLUMN hours REAL "

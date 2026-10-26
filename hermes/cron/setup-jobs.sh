@@ -48,7 +48,24 @@ fi
 : "${HERMES_JOB_PROVIDER:?set HERMES_JOB_PROVIDER (see: hermes config get model.provider)}"
 : "${HERMES_JOB_MODEL:?set HERMES_JOB_MODEL to a pinned model id (see: hermes config get model.model)}"
 
+# ONLY_JOBS=listings_frost hermes/cron/setup-jobs.sh adds just the named jobs to a host that
+# already has the rest. Re-running the whole script would mint a second full set of jobs, every
+# report sent twice (docs/10). Comma-separated job names; unset means all of them.
+ONLY="${ONLY_JOBS:-}"
+wanted() {
+  [ -z "$ONLY" ] && return 0
+  case ",$ONLY," in *",$1,"*) return 0 ;; esac
+  echo "skip $1 (not in ONLY_JOBS)"
+  return 1
+}
+
 j() {
+  local name="" prev=""
+  for a in "$@"; do
+    [ "$prev" = "--name" ] && name="$a"
+    prev="$a"
+  done
+  wanted "$name" || return 0
   hermes cron create "$@" --workdir "$REPO" \
     --provider "$HERMES_JOB_PROVIDER" --model "$HERMES_JOB_MODEL"
 }
@@ -107,6 +124,21 @@ j "every 30m" \
   "Read the listings inbox, extract and dedupe real listings, and decide whether anything is worth interrupting the owner for today rather than holding for the EOD digest. Default to the digest. Use your cron notepad to remember MLS numbers already seen across runs. Nothing new: [SILENT]." \
   --name listings_poll --deliver local --skill listings-triage
 
+# every 2h — frost scores for listings, from the vineyard-terrain frost API (runs beside Hermes
+# on this host). Terminal python: execute_code is blocked in cron. Delivers to the owner's DM;
+# the final message is a parcel question, a listing worth a look, the once-per-outage notice,
+# or [SILENT].
+OWNER="${OWNER_WA:-}"
+if [ -z "$OWNER" ]; then
+  echo "NOTE: OWNER_WA unset - listings_frost will deliver to 'local' instead of a DM."
+  OWNER_DEST="local"
+else
+  OWNER_DEST="whatsapp:${OWNER}"
+fi
+j "every 2h" \
+  "Run the frost scoring for listings in the terminal: python scripts/frost_score_listings.py (python3 on Ubuntu; execute_code is blocked in cron). Read its JSON verdict. For each needs_confirmation item, decide whether to ask the owner now; its confirm_text is the message. For each newly scored listing, decide whether it is worth interrupting the owner for today rather than holding it for the 04:30 report, per the listings-frost skill, and log the call with log_decision either way. If api.notice is set, say it once. Nothing worth saying: call skip_job with your reasoning, then reply exactly [SILENT]." \
+  --name listings_frost --deliver "$OWNER_DEST" --skill listings-frost
+
 # Sun 18:00 — payroll support.
 j "0 18 * * 0" \
   "Build the hours-by-worker-by-day workbook for the week and email it to managers for SAWP payroll. We run payroll through PAYWORKS - lay the workbook out for clean entry into it: one row per worker per day within the pay period, hours as decimals, pay-period dates in the header, totals per worker. Flag any day with missing or zero hours for a worker who otherwise worked." \
@@ -124,8 +156,10 @@ j "0 7 1 * *" \
 
 # every 15m — heartbeat. NO LLM: it must work when the provider is down.
 # NOTE: --script paths resolve under ~/.hermes/scripts/, NOT the repo. bootstrap.sh copies it.
-hermes cron create "every 15m" \
-  --name heartbeat --deliver local --no-agent --script "heartbeat.sh"
+if wanted heartbeat; then
+  hermes cron create "every 15m" \
+    --name heartbeat --deliver local --no-agent --script "heartbeat.sh"
+fi
 
 echo
 echo "Created. Verify:  hermes cron list"

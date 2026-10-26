@@ -11,3 +11,6 @@ openpyxl
 imapclient
 beautifulsoup4
 lxml
+# scripts/frost_score_listings.py renders its messages from templates/en.yaml. Pure Python
+# available; nothing here may pull in NumPy (the production CPU has no SSE4.2).
+pyyaml

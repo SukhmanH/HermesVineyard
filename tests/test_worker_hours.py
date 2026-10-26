@@ -94,7 +94,7 @@ def test_hours_migration_preserves_legacy_memberships(db, juan):
     db.execute("INSERT INTO task_workers VALUES (?,1)", (row["id"],))
     db.execute("DELETE FROM schema_version")
     db.execute("INSERT INTO schema_version(version) VALUES(6)")
-    assert migrate(db) == [7]
+    assert 7 in migrate(db)        # later migrations apply too
     assert hours(db, row["id"]) == [(1, None)]
     assert migrate(db) == []
 

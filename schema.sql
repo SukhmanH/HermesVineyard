@@ -259,8 +259,55 @@ CREATE TABLE listings (
   address        TEXT, area TEXT, url TEXT,
   first_seen_utc TEXT NOT NULL,
   raw_email_uid  TEXT,
-  notified       INTEGER NOT NULL DEFAULT 0
+  notified       INTEGER NOT NULL DEFAULT 0,
+  pid            TEXT                           -- ###-###-### when the email carries one
 );
+
+-- Frost scores for listings, from the vineyard-terrain frost API (scripts/
+-- frost_score_listings.py). One row per listing and model version; dedupe_key is
+-- listings.dedupe_key or 'property:<block code>' for the owner's six reference properties.
+-- A row follows the API's statuses until it is scored, then it is history: a corrected
+-- parcel inserts a row that supersedes it.
+CREATE TABLE listing_frost (
+  id                  INTEGER PRIMARY KEY,
+  dedupe_key          TEXT NOT NULL,
+  model_version       TEXT NOT NULL,             -- the frost API's model, e.g. 'v2+z1'
+  status              TEXT NOT NULL CHECK (status IN ('submitted','queued','resolving',
+                        'needs_confirmation','fetching','analyzing','done','failed',
+                        'skipped')),
+  pid                 TEXT,
+  parcel_source       TEXT,                      -- address | pid | point | geometry | clss
+  parcel_confidence   TEXT,
+  parcel_acres        REAL,
+  listing_acres       REAL,
+  api_job_id          TEXT,
+  frost_score         REAL,                      -- 100 - mean frost risk on plantable land
+  frost_safe_acres    REAL,
+  largest_contiguous_safe_acres REAL,
+  pct_high_risk       REAL,
+  frost_risk_mean     REAL,
+  coverage_pct        REAL,
+  drivers_json        TEXT,
+  flags_json          TEXT,
+  confidence          TEXT,                      -- high | medium | low
+  map_url             TEXT,
+  scored_at_utc       TEXT,
+  error               TEXT,
+  candidates_json     TEXT,                      -- parcels offered when confirmation is needed
+  attempts            INTEGER NOT NULL DEFAULT 0,
+  supersedes_id       INTEGER REFERENCES listing_frost(id),
+  created_at_utc      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+  updated_at_utc      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+);
+CREATE INDEX idx_listing_frost_key ON listing_frost (dedupe_key, model_version);
+CREATE TRIGGER trg_listing_frost_scored_is_history
+  BEFORE UPDATE ON listing_frost FOR EACH ROW WHEN OLD.status = 'done'
+BEGIN SELECT RAISE(ABORT, 'listing_frost: a scored row is history; insert a row that supersedes it'); END;
+CREATE TRIGGER trg_listing_frost_no_delete BEFORE DELETE ON listing_frost
+BEGIN SELECT RAISE(ABORT, 'listing_frost is append-only'); END;
+CREATE VIEW listing_frost_current AS
+  SELECT * FROM listing_frost f
+  WHERE NOT EXISTS (SELECT 1 FROM listing_frost s WHERE s.supersedes_id = f.id);
 
 -- Expected phenology / harvest per block, so PHI conflicts and timing advice have something to
 -- reason against. Owner-maintained; absent is fine and simply narrows what Hermes can say.

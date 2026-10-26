@@ -142,3 +142,46 @@ flag:
 help: |
   Commands: CLIMA/WEATHER · CORREGIR/FIX · EXPORT (managers) · ALTO/STOP
   Just describe work in plain language — no format needed.
+
+# ── Frost scores for listings (scripts/frost_score_listings.py) ─────────────
+# Spring/fall frost risk from terrain, from the vineyard-terrain frost API: the relative risk
+# of radiative frost on clear calm nights, when cold air drains downslope and pools. It is
+# never a temperature, never a promise that ground will not frost, and says nothing about a
+# multi-day arctic freeze like January 2024. Frost score 100 = least risk. These strings carry
+# no em dashes (tests/test_templates.py checks the rules).
+frost:
+  label: "spring/fall frost risk (terrain)"
+  ranking_header: "Frost ranking, spring/fall frost risk (terrain): {n} active listings scored. Score 100 = least risk; frost-safe = frost risk below 40. Relative to terrain, not a temperature."
+  row: "{rank}. {address} | {price} | frost {score} | {safe_ac} frost-safe ac | {per_safe_ac} | confidence {confidence}{flags}"
+  ref_row: "   ours: {name} | frost {score} | {safe_ac} frost-safe ac"
+  url_line: "   {url}"
+  map_line: "   map: {map_url}"
+  flags_suffix: " ({flags})"
+  per_safe_acre: "{amount}/frost-safe ac"
+  no_safe_acres: "no frost-safe ac"
+  price_missing: "price n/a"
+  partial_header: "Partial LiDAR coverage, ranked separately (each score covers only part of the parcel):"
+  scale_line: "Scale, our properties: {scale}"
+  pending: "Not scored yet: {n_confirm} waiting for you to confirm the parcel, {n_running} in progress, {n_failed} failed, {n_skipped} with no address or PID."
+  empty: "No active listing has a frost score yet."
+  scored: "{address}: frost {score}, {safe_ac} frost-safe ac of {plantable_ac} plantable, confidence {confidence}{flags}."
+  confirm: |
+    Which parcel is {address}? {reason}
+    {candidate_lines}
+    Map: {map_url}
+    Reply SI for 1, NO if none of these, a PID, or a location pin (or lat,lon). Ref {ref}.
+  candidate_line: "{index}. PID {pid}, {acres} ac"
+  candidate_lot_line: "{index}. reserve lot {designator}, {acres} ac"
+  ask_location: "I could not place {address} on a parcel: {reason}. Send a PID, a location pin, or lat,lon. Ref {ref}."
+  failed: "{address}: frost scoring failed ({error})."
+  api_down: "The frost API has not answered since {since}. New listings are queued and will be scored when it is back."
+  flag:
+    low_coverage: "partial LiDAR {coverage}%"
+    mixed_deliveries: "LiDAR deliveries mixed"
+    delivery_mix_refused: "part of the context left out at a LiDAR seam"
+    buffer_inadequate: "cold air may drain in from beyond the analysed area"
+    upslope_nodata: "upslope ground has no LiDAR"
+    weak_floor: "valley floor uncertain"
+    no_plantable_land: "no plantable land"
+    aoi_resampled_2m: "analysed at 2 m"
+    multi_pid: "several PIDs as one unit"

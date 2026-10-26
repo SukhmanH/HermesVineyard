@@ -1,4 +1,4 @@
-# Windows twin of setup-jobs.sh - run THIS on Windows hosts (git-bash mangles --workdir args).
+﻿# Windows twin of setup-jobs.sh - run THIS on Windows hosts (git-bash mangles --workdir args).
 #
 # FLAGS VERIFIED against the installed Hermes CLI on 2026-08-24 (see setup-jobs.sh header for
 # the full story): hermes cron create <schedule> <prompt> --name X --deliver Y --workdir Z
@@ -15,6 +15,10 @@ param(
     [string]$GrowerWa = $env:GROWER_WA,
     [string]$JobProvider = $env:HERMES_JOB_PROVIDER,
     [string]$JobModel = $env:HERMES_JOB_MODEL,
+    [string]$OwnerWa = $env:OWNER_WA,
+    # Comma-separated job names: add just these to a host that already has the rest.
+    # Re-running the whole script would create a second full set of jobs (docs/10).
+    [string]$OnlyJobs = $env:ONLY_JOBS,
     [string]$Repo = (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
 )
 
@@ -47,9 +51,21 @@ if ($GrowerWa) { $GrowerDest = "whatsapp:$GrowerWa" } else {
     Write-Host "NOTE: GROWER_WA unset - grower_daily_report delivers to 'local'."
     $GrowerDest = "local"
 }
+if ($OwnerWa) { $OwnerDest = "whatsapp:$OwnerWa" } else {
+    Write-Host "NOTE: OWNER_WA unset - listings_frost delivers to 'local'."
+    $OwnerDest = "local"
+}
+$Only = @()
+if ($OnlyJobs) { $Only = @($OnlyJobs.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+function Wanted([string]$Name) {
+    if ($Only.Count -eq 0 -or $Only -contains $Name) { return $true }
+    Write-Host "skip $Name (not in ONLY_JOBS)"
+    return $false
+}
 
 function J {
     param([string]$Schedule, [string]$Prompt, [string]$Name, [string]$Deliver, [string[]]$Skills)
+    if (-not (Wanted $Name)) { return }
     $args = @("cron", "create", $Schedule, $Prompt, "--name", $Name, "--deliver", $Deliver,
               "--workdir", $Repo, "--provider", $JobProvider, "--model", $JobModel)
     foreach ($s in $Skills) { $args += @("--skill", $s) }
@@ -102,6 +118,12 @@ J "every 30m" `
   "Read the listings inbox, extract and dedupe real listings, and decide whether anything is worth interrupting the owner for today rather than holding for the EOD digest. Default to the digest. Use your cron notepad to remember MLS numbers already seen across runs. Nothing new: [SILENT]." `
   "listings_poll" "local" @("listings-triage")
 
+# every 2h - frost scores for listings from the vineyard-terrain frost API (beside Hermes on
+# this host). Terminal python; execute_code is blocked in cron. Delivers to the owner's DM.
+J "every 2h" `
+  "Run the frost scoring for listings in the terminal: python scripts/frost_score_listings.py (python3 on Ubuntu; execute_code is blocked in cron). Read its JSON verdict. For each needs_confirmation item, decide whether to ask the owner now; its confirm_text is the message. For each newly scored listing, decide whether it is worth interrupting the owner for today rather than holding it for the 04:30 report, per the listings-frost skill, and log the call with log_decision either way. If api.notice is set, say it once. Nothing worth saying: call skip_job with your reasoning, then reply exactly [SILENT]." `
+  "listings_frost" $OwnerDest @("listings-frost")
+
 # Sun 18:00 - payroll support.
 J "0 18 * * 0" `
   "Build the hours-by-worker-by-day workbook for the week and email it to managers for SAWP payroll. We run payroll through PAYWORKS - lay the workbook out for clean entry into it: one row per worker per day within the pay period, hours as decimals, pay-period dates in the header, totals per worker. Flag any day with missing or zero hours for a worker who otherwise worked." `
@@ -121,7 +143,9 @@ J "0 7 1 * *" `
 # NOTE: --script paths resolve under the Hermes home scripts/ dir; bootstrap copies it there.
 # The .py twin, not the .sh: on Windows the runtime's bash can resolve to a WSL bash that
 # cannot read C:\ paths, which is the whole reason the Python port exists.
-& hermes cron create "every 15m" --name heartbeat --deliver local --no-agent --script "heartbeat.py"
+if (Wanted "heartbeat") {
+    & hermes cron create "every 15m" --name heartbeat --deliver local --no-agent --script "heartbeat.py"
+}
 
 Write-Host ""
 Write-Host "Created. Verify:  hermes cron list"
