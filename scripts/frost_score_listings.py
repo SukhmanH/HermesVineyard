@@ -89,7 +89,7 @@ SHOWN_FLAGS = ("low_coverage", "buffer_inadequate", "upslope_nodata", "weak_floo
 DEFAULTS = {
     "base_url": "http://100.71.243.94:8000",
     "timeout_s": 20,
-    "buffer_m": 750,
+    "buffer_m": 1000,
     "run_budget_s": 60,
     "max_submit_per_run": 5,
     "retry_after_hours": 12,
@@ -615,15 +615,31 @@ def _partial(row: dict) -> bool:
     return "low_coverage" in flags or (cov is not None and cov < LOW_COVERAGE_PCT)
 
 
-def _listing_lines(rank: int, listing: dict, row: dict, templates: dict) -> list[str]:
+def _where_line(listing: dict, templates: dict) -> str | None:
+    """The listing's own link, or its MLS number when the email carried no URL. Never a
+    guessed URL: the daily report's rule."""
+    if listing.get("url"):
+        return templates["url_line"].format(url=listing["url"])
+    if listing.get("mls_number"):
+        return templates["mls_line"].format(mls=listing["mls_number"])
+    return None
+
+
+def _listing_lines(rank: int, listing: dict, row: dict, templates: dict,
+                   also: list[dict] = ()) -> list[str]:
     lines = [templates["row"].format(
         rank=rank, address=listing.get("address") or listing.get("title") or row["dedupe_key"],
         price=money(listing.get("price")) or templates["price_missing"],
         score=_num(row["frost_score"]), safe_ac=_num(row["frost_safe_acres"], 1),
         per_safe_ac=per_safe_acre(listing.get("price"), row["frost_safe_acres"], templates),
         confidence=row["confidence"] or "n/a", flags=_flags(row, templates))]
-    if listing.get("url"):
-        lines.append(templates["url_line"].format(url=listing["url"]))
+    where = _where_line(listing, templates)
+    if where:
+        lines.append(where)
+    for other in also:
+        where = _where_line(other, templates)
+        lines.append(templates["also_listed"].format(
+            where=where.strip() if where else other["dedupe_key"]))
     if row.get("map_url"):
         lines.append(templates["map_line"].format(map_url=row["map_url"]))
     return lines
@@ -637,12 +653,20 @@ def ranking(conn, cfg: dict, templates: dict, now: datetime | None = None,
     now = now or now_utc()
     model_version = model_version or latest_model(conn)
     rows = current_rows(conn, model_version) if model_version else {}
-    scored, counts = [], Counter()
+    scored, counts, n_scored = [], Counter(), 0
+    same_parcel: dict[str, list[dict]] = {}
     for listing in active_listings(conn, cfg, now):
         row = rows.get(listing["dedupe_key"])
         if row is None or row["status"] in IN_FLIGHT:
             counts["running"] += 1
         elif row["status"] == "done":
+            n_scored += 1
+            # one parcel listed under two MLS numbers is one ranking row, not two
+            if row["pid"] in same_parcel:
+                same_parcel[row["pid"]].append(listing)
+                continue
+            if row["pid"]:
+                same_parcel[row["pid"]] = []
             scored.append((listing, row))
         else:
             counts[row["status"]] += 1
@@ -659,7 +683,7 @@ def ranking(conn, cfg: dict, templates: dict, now: datetime | None = None,
     partial = sorted([s for s in scored if _partial(s[1])], key=score, reverse=True)
     if top:
         full, partial = full[:top], partial[:max(0, top - len(full))]
-    lines = [templates["ranking_header"].format(n=len(scored))] if scored else \
+    lines = [templates["ranking_header"].format(n=n_scored)] if scored else \
         [templates["empty"]]
 
     rank = 0
@@ -669,7 +693,8 @@ def ranking(conn, cfg: dict, templates: dict, now: datetime | None = None,
     for kind, (item, row) in ordered:
         if kind == "listing":
             rank += 1
-            lines.extend(_listing_lines(rank, item, row, templates))
+            lines.extend(_listing_lines(rank, item, row, templates,
+                                        same_parcel.get(row["pid"]) or []))
         else:
             lines.append(templates["ref_row"].format(
                 name=item["name"], score=_num(row["frost_score"]),
@@ -678,7 +703,8 @@ def ranking(conn, cfg: dict, templates: dict, now: datetime | None = None,
         lines.append(templates["partial_header"])
         for listing, row in partial:
             rank += 1
-            lines.extend(_listing_lines(rank, listing, row, templates))
+            lines.extend(_listing_lines(rank, listing, row, templates,
+                                        same_parcel.get(row["pid"]) or []))
     if top and refs:
         scale = ", ".join(f"{p['name']} {_num(r['frost_score'])}"
                           for p, r in sorted(refs, key=score, reverse=True))
@@ -720,8 +746,9 @@ def render_events(conn, events: list[dict], cfg: dict, templates: dict) -> tuple
                 safe_ac=_num(m.get("frost_safe_acres"), 1),
                 plantable_ac=_num(m.get("plantable_acres"), 1),
                 confidence=m.get("confidence") or "n/a", flags=_flags(row, templates)))
-            if listing.get("url"):
-                lines.append(templates["url_line"].format(url=listing["url"]))
+            where = _where_line(listing, templates)
+            if where:
+                lines.append(where)
             if ev.get("map_url"):
                 lines.append(templates["map_line"].format(map_url=ev["map_url"]))
             items["scored"].append({

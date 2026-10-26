@@ -155,6 +155,8 @@ frost:
   row: "{rank}. {address} | {price} | frost {score} | {safe_ac} frost-safe ac | {per_safe_ac} | confidence {confidence}{flags}"
   ref_row: "   ours: {name} | frost {score} | {safe_ac} frost-safe ac"
   url_line: "   {url}"
+  mls_line: "   MLS {mls}"
+  also_listed: "   same parcel, also listed: {where}"
   map_line: "   map: {map_url}"
   flags_suffix: " ({flags})"
   per_safe_acre: "{amount}/frost-safe ac"

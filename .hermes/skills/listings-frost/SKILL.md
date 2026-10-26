@@ -38,8 +38,8 @@ made by `scripts/frost_score_listings.py`.
 - **% high risk**: share of the parcel at frost risk 60 or more.
 - **Price per frost-safe acre**: the listing price over its frost-safe acres. Useful for
   comparing listings, not a valuation.
-- **The scale is our own ground**, scored the same way (owner-confirmed parcels, 2026-10-26):
-  Upper Bench 77, Naramata 71, Rust 61, Tucelnuit 42, Cassini 32, Hwy 97 21. The owner signed off
+- **The scale is our own ground**, scored the same way (owner-confirmed parcels, 2026-10-25):
+  Upper Bench 77, Naramata 71, Rust 61, Tucelnuit 41, Cassini 32, Hwy 97 22. The owner signed off
   that this order matches what frosts. A listing above Upper Bench sits higher above the cold-air
   pooling than anything we farm; one below Hwy 97 is cold valley floor.
 

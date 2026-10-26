@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import sys
+import zlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -99,7 +100,7 @@ def test_only_structured_fields_reach_the_api(db):
     api = FakeApi()
     fsl.submit_new(db, api, CFG, "v2+z1", NOW)
     (body,) = api.sent
-    assert body == {"ref": "mls-1", "buffer_m": 750, "address": "1056 Naramata Rd",
+    assert body == {"ref": "mls-1", "buffer_m": 1000, "address": "1056 Naramata Rd",
                     "town": "Penticton", "listing_acres": 9.0}
     assert "IGNORE" not in json.dumps(body) and "evil" not in json.dumps(body)
 
@@ -107,7 +108,7 @@ def test_only_structured_fields_reach_the_api(db):
 def test_a_pid_is_sent_instead_of_the_address(db):
     add_listing(db, "mls-2", pid="012525499", address="1056 Naramata Rd, Penticton")
     assert fsl.request_body(dict(db.execute("SELECT * FROM listings").fetchone()), CFG) == \
-        {"ref": "mls-2", "buffer_m": 750, "pid": "012-525-499"}
+        {"ref": "mls-2", "buffer_m": 1000, "pid": "012-525-499"}
 
 
 def test_the_town_falls_back_to_the_area(db):
@@ -198,7 +199,7 @@ def test_confirming_a_candidate_resubmits_it_confirmed(db, templates):
         "reasons": ["x"], "candidates": [{"index": 1, "pid": "011-333-596", "acres": 9.2}]}}
     fsl.run_cron(db, api, CFG, templates, NOW + timedelta(hours=2))
     out = fsl.confirm(db, api, CFG, f"F{row['id']}", NOW, candidate=1)
-    assert out["ok"] and api.sent[-1] == {"ref": "mls-9", "buffer_m": 750, "confirmed": True,
+    assert out["ok"] and api.sent[-1] == {"ref": "mls-9", "buffer_m": 1000, "confirmed": True,
                                           "listing_acres": 9.0, "pid": "011-333-596"}
     assert rows(db)[0]["status"] == "submitted" and rows(db)[0]["attempts"] == 2
     loc = fsl.confirm(db, api, CFG, f"F{row['id']}", NOW, location="49.134041,-119.582336")
@@ -310,12 +311,15 @@ def test_an_outage_is_reported_once_after_a_day(db, templates):
 
 # ------------------------------------------------------------------ ranking
 def _scored(db, key, score, safe, coverage=100.0, flags=(), price=None, url=None,
-            address=None, model="v2+z1"):
+            address=None, model="v2+z1", pid=None, first_seen=None):
     if not key.startswith("property:"):
-        add_listing(db, key, price=price, url=url, address=address or f"{key} Rd, Oliver")
+        add_listing(db, key, price=price, url=url, address=address or f"{key} Rd, Oliver",
+                    first_seen_utc=fsl.iso(first_seen or NOW - timedelta(days=1)))
+    digits = f"{zlib.crc32(key.encode()) % 10**9:09d}"        # its own parcel by default
+    pid = pid or f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
     rid = fsl.insert_row(db, key, model, NOW, status="submitted", api_job_id="0" * 32)
-    fields = fsl._metrics_fields(done(score=score, safe=safe, coverage=coverage, flags=flags),
-                                 NOW)
+    fields = fsl._metrics_fields(done(score=score, safe=safe, coverage=coverage, flags=flags,
+                                      pid=pid), NOW)
     fsl.update_row(db, rid, NOW, **fields)
 
 
@@ -349,6 +353,33 @@ def test_the_top_n_ranking_puts_our_properties_on_one_scale_line(db, templates):
     text = fsl.ranking(db, CFG, templates, now=NOW, top=2)
     assert "3." not in text and "ours:" not in text
     assert "Scale, our properties: Upper Bench 77, Hwy 97 21" in text
+
+
+def test_one_parcel_under_two_mls_numbers_is_one_ranking_row(db, templates):
+    """Realtors list one farm under two MLS numbers (residential and farm). Both resolve to
+    the same PID; the ranking shows the parcel once, so a duplicate cannot take a top-5 slot."""
+    _scored(db, "mls-10399093", 69.3, 5.31, price=849_000, pid="023-230-622",
+            address="156 Porcupine Place Oliver, BC", first_seen=NOW - timedelta(days=2))
+    _scored(db, "mls-10399091", 69.3, 5.31, price=849_000, pid="023-230-622",
+            address="156 Porcupine Place Oliver, BC", url="https://realtor.example/91")
+    _scored(db, "mls-x", 50.0, 1.0, price=700_000)
+    text = fsl.ranking(db, CFG, templates, now=NOW, top=2)
+    lines = text.splitlines()
+    assert "3 active listings scored" in lines[0]
+    assert [ln.split("|")[0].strip() for ln in lines if ln[:2] in ("1.", "2.", "3.")] == [
+        "1. 156 Porcupine Place Oliver, BC", "2. mls-x Rd, Oliver"]
+    assert "   MLS 10399093" in lines
+    assert "   same parcel, also listed: https://realtor.example/91" in lines
+
+
+def test_a_listing_without_a_url_gives_its_mls_number_not_a_guess(db, templates):
+    _scored(db, "mls-10398690", 67.1, 1.9, price=799_000)
+    assert "   MLS 10398690" in fsl.ranking(db, CFG, templates, now=NOW).splitlines()
+    text, _ = fsl.render_events(db, [{"kind": "scored", "key": "mls-10398690", "row_id": 1,
+                                      "metrics": done()["metrics"], "map_url": None}],
+                                CFG, templates)
+    assert "   MLS 10398690" in text.splitlines()
+    assert "realtor" not in text
 
 
 def test_missing_prices_and_no_safe_acres_are_said_plainly(templates):
