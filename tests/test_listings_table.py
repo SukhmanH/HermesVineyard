@@ -90,5 +90,15 @@ class TestRender:
         assert "New additions: none" in text
         assert "All properties shown (2)" in text
 
+    def test_gone_listings_leave_the_table_but_stay_in_the_csv(self, tmp_path):
+        rows = self.rows()
+        rows["mls-2"]["status"] = "gone"
+        text = tbl.render(rows, self.NOW)
+        assert "Smethurst" not in text
+        assert "1 sold or delisted" in text
+        path = str(tmp_path / "shown.csv")
+        tbl.write_csv(rows, path)
+        assert tbl.read_csv(path)["mls-2"]["status"] == "gone"
+
     def test_empty_csv_is_silent(self):
         assert tbl.render({}, self.NOW) == ""

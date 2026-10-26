@@ -14,7 +14,8 @@ updates", so the first alert for a listing arrives within hours of it going live
 own "Time on REALTOR.ca" agreed to within a day when checked on 2026-10-26. Scraping the site for
 it is off the table (CREA terms; see the listings-triage skill). `listed_on` is written once and
 never overwritten, so a date corrected by hand in the CSV holds. Sold or expired listings are not
-detected: their count keeps running.
+detected automatically: `status` is set by hand (from a REALTOR.ca check), and "gone" rows leave
+the message but stay in the CSV. Hand-filled price and acres also hold; sync only fills blanks.
 
 The emit_listings_table_<owner> cron jobs run this once a day, one per owner. The output depends
 only on the CSV and the clock (new additions are the rows first shown in the last 24 hours), so
@@ -40,7 +41,7 @@ DB_PATH = os.environ.get("DB_PATH") or os.path.join(REPO, "data", "hermes.db")
 CSV_PATH = os.environ.get("LISTINGS_CSV") or os.path.join(REPO, "data", "listings_shown.csv")
 
 FIELDS = ["mls", "address", "area", "price", "acres", "listed_on", "days_listed",
-          "first_shown_utc", "url", "dedupe_key"]
+          "first_shown_utc", "url", "dedupe_key", "status"]
 NEW_WINDOW = timedelta(hours=24)
 MAX_ROWS = 40             # a WhatsApp message, not the whole CSV; the CSV keeps everything
 
@@ -151,7 +152,10 @@ def one_per_property(rows: list[dict]) -> list[dict]:
 def render(rows: dict[str, dict], now: datetime) -> str:
     if not rows:
         return ""
-    ordered = one_per_property(sorted(rows.values(), key=lambda r: int(r["days_listed"])))
+    # status is filled by hand (a REALTOR.ca check); "gone" = sold, expired or delisted
+    live = [r for r in rows.values() if (r.get("status") or "").lower() != "gone"]
+    gone = len(rows) - len(live)
+    ordered = one_per_property(sorted(live, key=lambda r: int(r["days_listed"])))
     new = [r for r in ordered if now - datetime.fromisoformat(
         r["first_shown_utc"].replace("Z", "+00:00")) <= NEW_WINDOW]
 
@@ -180,7 +184,9 @@ def render(rows: dict[str, dict], now: datetime) -> str:
     lines.append("```")
     if len(ordered) > len(shown):
         lines.append(f"+{len(ordered) - len(shown)} older in data/listings_shown.csv")
-    lines.append("Days = since the first listing alert. Sold listings are not detected.")
+    if gone:
+        lines.append(f"{gone} sold or delisted, kept in data/listings_shown.csv")
+    lines.append("Days = since the first listing alert.")
     return "\n".join(lines)
 
 
