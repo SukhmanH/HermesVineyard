@@ -63,6 +63,44 @@ review under `~/.hermes/pending/skills/`. This is deliberate and it is not a jud
 There is no per-skill gate available upstream — it is one boolean — and losing the gate on
 `spray-log` would be a compliance failure, so the friction on the open-tier skills is the price.
 
+## Skill update preference order
+
+When a learning opportunity signals a skill update, apply the preference order below — the
+first matching action wins. Do not skip to a later step if an earlier one fits.
+
+1. **UPDATE A CURRENTLY-LOADED SKILL.** If any skill is loaded (via skill_view or was loaded
+   earlier in the session) and its topic covers the new learning, patch it first. Reload it
+   with skill_view during the review to get its current content before editing.
+
+2. **UPDATE AN EXISTING UMBRELLA SKILL.** If no loaded skill fits, check skills_list for an
+   existing class-level skill that covers the territory. Patch it — add a subsection, a pitfall,
+   or broaden a trigger. Do not create a new skill if an existing one can be extended.
+
+3. **ADD A SUPPORT FILE under an existing umbrella.** If the learning is better suited to a
+   support file rather than SKILL.md body, add it under the relevant umbrella's directory:
+   `references/<topic>.md` for topical depth (decision tables, recipes, provider quirks,
+   condensed domain notes), `templates/<name>.<ext>` for starter files meant to be copied, or
+   `scripts/<name>.<ext>` for statically re-runnable actions the skill can invoke directly.
+   The umbrella's SKILL.md must gain a one-line pointer to any new support file.
+
+4. **CREATE A NEW CLASS-LEVEL UMBRELLA SKILL** when no existing skill covers the class. The
+   name must be at the class level — not a PR number, error string, feature codename, or
+   'fix-X / debug-Y / audit-Z-today' session artifact. If the name only makes sense for
+   today's task, it is wrong — fall back to (1), (2), or (3).
+
+## Read-before-write enforcement
+
+Before you patch or edit an existing skill's SKILL.md:
+
+- Call `skill_view(name)` for that skill during this review to obtain current content.
+- If the write is refused with a read-before-write error, call `skill_view` once for the
+  named target and retry the write once. Do not loop.
+- Content quoted earlier in the conversation transcript does NOT count as having read the
+  skill — a fresh skill_view call is required.
+
+New skill creation or new supporting files need no prior read. The guard exists so that SKILL.md
+patches always operate on the latest loaded content, preventing stale edits.
+
 Practical consequence: **do not batch.** Stage one coherent change with a clear description. A
 reviewer approving a 200-line diff at the end of the week is not reviewing.
 
