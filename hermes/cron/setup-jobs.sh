@@ -114,6 +114,11 @@ j "0 20 * * *" \
   "If we are inside a frost window (Mar 1-May 31, Sep 15-Nov 15), check every site's overnight minimum. Any site at or below 2 C is an immediate alert to the crew group and managers, in every worker language. Out of season, [SILENT]." \
   --name frost_watch --deliver "$GROUP" --skill weather-fetch
 
+# 20:05 — frost alert to Harjit in Punjabi (24/7 priority; ignore quiet hours).
+j "5 20 * * *" \
+  "Deliver the vineyard frost alert to Harjit in PUNJABI (Gurmukhi script). Harjit is an owner. The frost_watch output is injected above as context. If frost_watch replied [SILENT] or there is no frost alert (all sites above 2 C or out of season), reply exactly [SILENT]. If there is an active frost alert (site forecast <= 2.0 C), render the vineyard frost alert in clear spoken Punjabi: sites at risk, forecast min temps, hours, and wind machine readiness. Gurmukhi only, one message." \
+  --name frost_watch_harjit_punjabi --deliver "whatsapp:17789281329@s.whatsapp.net" --skill punjabi-intake
+
 # 21:30 — nightly housekeeping.
 j "30 21 * * *" \
   "Rebuild the nightly workbooks, run the SQLite .backup, back up the WhatsApp session directory, git-commit the skills directory, and rotate per the retention policy. Report only if something failed; otherwise [SILENT]." \
