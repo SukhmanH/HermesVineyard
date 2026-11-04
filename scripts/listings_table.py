@@ -199,10 +199,10 @@ def render(rows: dict[str, dict], now: datetime) -> str:
 
     shown = ordered[:MAX_ROWS]
     lines += ["", f"All properties shown ({len(ordered)}), by days listed:", "```"]
-    lines += [f"{'Days':>4} {'Price':>5} {'Frost':>5} {'Area':<9} Address"]
+    lines += [f"{'Days':>4} {'Price':>6} {'Frost':>5} {'Area':<9} Address"]
     for r in shown:
         area = (r.get("area") or "").replace("Okanagan Falls", "OK Falls")[:9]
-        lines.append(f"{r['days_listed']:>4} {short_price(r.get('price')):>5} "
+        lines.append(f"{r['days_listed']:>4} {short_price(r.get('price')):>6} "
                      f"{table_frost(r):>5} {area:<9} {table_address(r)[:17]}")
     lines.append("```")
     if len(ordered) > len(shown):
