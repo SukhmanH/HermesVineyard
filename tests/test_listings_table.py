@@ -100,5 +100,19 @@ class TestRender:
         tbl.write_csv(rows, path)
         assert tbl.read_csv(path)["mls-2"]["status"] == "gone"
 
+    def test_frost_score_follows_the_database(self):
+        rows = tbl.sync({}, [listing("mls-1", "2026-10-21T20:32:16Z", frost="")], date(2026, 10, 26))
+        assert tbl.table_frost(rows["mls-1"]) == "-"
+        rows = tbl.sync(rows, [listing("mls-1", "2026-10-21T20:32:16Z",
+                                       frost=tbl.frost_label("needs_confirmation", None))],
+                        date(2026, 10, 26))
+        assert tbl.table_frost(rows["mls-1"]) == "?"
+        rows = tbl.sync(rows, [listing("mls-1", "2026-10-21T20:32:16Z",
+                                       frost=tbl.frost_label("done", 82.9))], date(2026, 10, 26))
+        assert rows["mls-1"]["frost_score"] == "83"
+        text = tbl.render(rows, datetime(2026, 10, 22, tzinfo=UTC))
+        assert "frost 83" in text.split("All properties")[0]
+        assert "   83 Penticton" in text.split("```")[1]
+
     def test_empty_csv_is_silent(self):
         assert tbl.render({}, self.NOW) == ""

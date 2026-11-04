@@ -41,7 +41,7 @@ DB_PATH = os.environ.get("DB_PATH") or os.path.join(REPO, "data", "hermes.db")
 CSV_PATH = os.environ.get("LISTINGS_CSV") or os.path.join(REPO, "data", "listings_shown.csv")
 
 FIELDS = ["mls", "address", "area", "price", "acres", "listed_on", "days_listed",
-          "first_shown_utc", "url", "dedupe_key", "status"]
+          "first_shown_utc", "url", "dedupe_key", "status", "frost_score"]
 NEW_WINDOW = timedelta(hours=24)
 MAX_ROWS = 40             # a WhatsApp message, not the whole CSV; the CSV keeps everything
 
@@ -79,11 +79,28 @@ def db_listings(db_path: str = DB_PATH) -> list[dict]:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=10)
     conn.row_factory = sqlite3.Row
     try:
-        return [dict(r) for r in conn.execute(
+        listings = [dict(r) for r in conn.execute(
             "SELECT dedupe_key, mls_number, title, address, area, price, acres, url, "
             "first_seen_utc FROM listings")]
+        frost = {}
+        # A database before the frost migration has no listing_frost: the table still goes out.
+        with contextlib.suppress(sqlite3.OperationalError):
+            # newest row per listing; a done score wins over a later failed or pending attempt
+            for r in conn.execute("SELECT dedupe_key, status, frost_score FROM listing_frost_current "
+                                  "ORDER BY (status = 'done'), scored_at_utc, id"):
+                frost[r["dedupe_key"]] = frost_label(r["status"], r["frost_score"])
+        for item in listings:
+            item["frost"] = frost.get(item["dedupe_key"], "")
+        return listings
     finally:
         conn.close()
+
+
+def frost_label(status: str, score) -> str:
+    """The CSV's frost_score: the score, or why there is none yet."""
+    if status == "done" and score is not None:
+        return f"{score:.0f}"
+    return "confirm" if status == "needs_confirmation" else "pending"
 
 
 def sync(rows: dict[str, dict], listings: list[dict], today: date) -> dict[str, dict]:
@@ -102,6 +119,9 @@ def sync(rows: dict[str, dict], listings: list[dict], today: date) -> dict[str, 
                              ("acres", item["acres"]), ("url", item["url"])):
             if not row.get(field) and value is not None:
                 row[field] = f"{value:.0f}" if field == "price" else value
+        # unlike the hand-filled fields, the frost score follows the database (re-scoring moves it)
+        if item.get("frost"):
+            row["frost_score"] = item["frost"]
     for row in rows.values():
         row["days_listed"] = (today - date.fromisoformat(row["listed_on"])).days
     return rows
@@ -169,25 +189,34 @@ def render(rows: dict[str, dict], now: datetime) -> str:
             line += f" — {short_price(r.get('price'))}"
             if r.get("acres"):
                 line += f", {float(r['acres']):g} ac"
-            lines.append(line + f" — listed {r['days_listed']} d")
+            line += f" — listed {r['days_listed']} d"
+            if (r.get("frost_score") or "").isdigit():
+                line += f" — frost {r['frost_score']}"
+            lines.append(line)
             lines.append(f"  {r['url']}" if r.get("url") else f"  MLS {r.get('mls') or 'n/a'}")
     else:
         lines.append("New additions: none in the last 24 hours.")
 
     shown = ordered[:MAX_ROWS]
     lines += ["", f"All properties shown ({len(ordered)}), by days listed:", "```"]
-    lines += [f"{'Days':>4} {'Price':>5} {'Area':<9} Address"]
+    lines += [f"{'Days':>4} {'Price':>5} {'Frost':>5} {'Area':<9} Address"]
     for r in shown:
         area = (r.get("area") or "").replace("Okanagan Falls", "OK Falls")[:9]
-        lines.append(f"{r['days_listed']:>4} {short_price(r.get('price')):>5} {area:<9} "
-                     f"{table_address(r)}")
+        lines.append(f"{r['days_listed']:>4} {short_price(r.get('price')):>5} "
+                     f"{table_frost(r):>5} {area:<9} {table_address(r)[:17]}")
     lines.append("```")
     if len(ordered) > len(shown):
         lines.append(f"+{len(ordered) - len(shown)} older in data/listings_shown.csv")
     if gone:
         lines.append(f"{gone} sold or delisted, kept in data/listings_shown.csv")
-    lines.append("Days = since the first listing alert.")
+    lines.append("Days = since the first listing alert. Frost = terrain frost score, higher is "
+                 "safer (? = parcel not confirmed yet).")
     return "\n".join(lines)
+
+
+def table_frost(row: dict) -> str:
+    score = row.get("frost_score") or ""
+    return score if score.isdigit() else "?" if score == "confirm" else "-"
 
 
 def main() -> int:
